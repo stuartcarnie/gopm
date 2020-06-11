@@ -33,26 +33,15 @@ func init() {
 	zap.ReplaceGlobals(log)
 }
 
-func initSignals(s *gopm.Supervisor) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-		zap.L().Info("Received signal to stop all processes and exit", zap.Stringer("signal", sig))
-		s.GetManager().StopAllProcesses()
-		os.Exit(-1)
-	}()
-}
-
-func loadEnvFile() {
+func loadEnvFile() error {
 	if len(rootOpt.EnvFile) <= 0 {
-		return
+		return nil
 	}
 
 	kvs, err := env.ReadFile(rootOpt.EnvFile)
 	if err != nil {
 		zap.L().Error("Failed to open environment file", zap.String("file", rootOpt.EnvFile))
-		return
+		return err
 	}
 	for i := range kvs {
 		kv := &kvs[i]
@@ -61,19 +50,26 @@ func loadEnvFile() {
 			zap.L().Error("Failed to set environment variable", zap.String("key", kv.Key), zap.String("value", kv.Value), zap.Error(err))
 		}
 	}
+	return nil
 }
 
-func runServer() {
-	// infinite loop for handling Restart ('reload' command)
-	loadEnvFile()
-	for {
-		s := gopm.NewSupervisor(rootOpt.Configuration)
-		initSignals(s)
-		if _, _, _, sErr := s.Reload(); sErr != nil {
-			panic(sErr)
-		}
-		s.WaitForExit()
+func runServer() error {
+	if err := loadEnvFile(); err != nil {
+		return err
 	}
+
+	s := gopm.NewSupervisor(rootOpt.Configuration)
+	if err := s.Reload(); err != nil {
+		return err
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigs
+	zap.L().Info("Received signal to stop all processes and exit", zap.Stringer("signal", sig))
+	s.GetManager().StopAllProcesses()
+
+	return nil
 }
 
 var (
@@ -84,9 +80,9 @@ var (
 	}{}
 
 	rootCmd = cobra.Command{
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			process.SetShellArgs(strings.Split(rootOpt.Shell, " "))
-			runServer()
+			return runServer()
 		},
 	}
 )

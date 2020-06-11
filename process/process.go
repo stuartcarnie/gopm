@@ -228,9 +228,9 @@ func (p *Process) Start(wait bool) {
 }
 
 // Destroy stops the process and removes it from cron
-func (p *Process) Destroy() {
+func (p *Process) Destroy(wait bool) {
 	p.removeFromCron()
-	p.Stop(false)
+	p.Stop(wait)
 }
 
 // Name returns the name of program

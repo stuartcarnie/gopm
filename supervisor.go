@@ -153,7 +153,7 @@ func getProcessInfo(proc *process.Process) *types.ProcessInfo {
 	}
 }
 
-// GetAllProcessInfo get all the program informations managed by supervisor
+// GetAllProcessInfo returns information for all processes managed by supervisor.
 func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	var pi types.ProcessInfos
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
@@ -230,10 +230,10 @@ func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply
 // Reload reload the supervisor configuration
 //return err, addedGroup, changedGroup, removedGroup
 //
-func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, err error) {
+func (s *Supervisor) Reload() error {
 	changes, err := s.config.LoadPath(s.configFile)
 	if len(changes) == 0 {
-		return nil, nil, nil, nil
+		return nil
 	}
 
 	if err != nil {
@@ -248,7 +248,7 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 			zap.L().Error("Error loading configuration", zap.Error(err))
 		}
 
-		return nil, nil, nil, err
+		return err
 	}
 
 	s.createPrograms(changes)
@@ -256,7 +256,7 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 	s.startGrpcServer(changes)
 	s.startAutoStartPrograms()
 
-	return nil, nil, nil, err
+	return err
 }
 
 // WaitForExit wait the supervisor to exit
@@ -281,10 +281,7 @@ func (s *Supervisor) createPrograms(changes memdb.Changes) {
 			s.procMgr.CreateOrUpdateProcess(s.GetSupervisorID(), ch.After.(*config.Process))
 
 		case ch.Deleted():
-			proc := s.procMgr.Remove(ch.Before.(*config.Process).Name)
-			if proc != nil {
-				proc.Destroy()
-			}
+			s.procMgr.RemoveProcess(ch.Before.(*config.Process).Name)
 		}
 	}
 }

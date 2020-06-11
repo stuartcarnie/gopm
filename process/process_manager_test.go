@@ -18,8 +18,8 @@ func TestProcMgrRemove(t *testing.T) {
 	var procs = NewManager()
 	procs.Clear()
 	procs.Add("test1", &Process{})
-	proc := procs.Remove("test1")
+	proc := procs.RemoveProcess("test1")
 	assert.NotNil(t, proc, "Failed to remove process")
-	proc = procs.Remove("test1")
+	proc = procs.RemoveProcess("test1")
 	assert.Nil(t, proc, "Unexpected value")
 }

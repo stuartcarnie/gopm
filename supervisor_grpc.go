@@ -131,15 +131,15 @@ func (s *Supervisor) Shutdown(context.Context, *empty.Empty) (*empty.Empty, erro
 }
 
 func (s *Supervisor) ReloadConfig(context.Context, *empty.Empty) (*rpc.ReloadConfigResponse, error) {
-	addedGroup, changedGroup, removedGroup, err := s.Reload()
+	err := s.Reload()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &rpc.ReloadConfigResponse{
-		AddedGroup:   addedGroup,
-		ChangedGroup: changedGroup,
-		RemovedGroup: removedGroup,
+		AddedGroup:   nil,
+		ChangedGroup: nil,
+		RemovedGroup: nil,
 	}, nil
 }
 

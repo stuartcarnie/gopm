@@ -5,7 +5,9 @@ import (
 
 	"github.com/hashicorp/go-memdb"
 	"github.com/r3labs/diff"
+	"github.com/scylladb/go-set/strset"
 	"github.com/stuartcarnie/gopm/model"
+	"github.com/stuartcarnie/gopm/pkg/cast"
 )
 
 func ApplyUpdates(txn *memdb.Txn, m *model.Root) error {
@@ -38,10 +40,55 @@ func (u *updater) applyGroup(txn *memdb.Txn, m *model.Root) {
 	}
 }
 
-func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) {
+func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) error {
+	iter, err := txn.Get("process", "id")
+	if err != nil {
+		return err
+	}
+
+	prev := strset.New()
+	for {
+		raw := iter.Next()
+		if orig, ok := raw.(*Process); ok {
+			prev.Add(orig.Name)
+			continue
+		}
+		break
+	}
+
+	next := strset.New()
 	for _, program := range m.Programs {
-		proc := new(Process)
-		proc.Name = program.Name
+		next.Add(program.Name)
+		proc := &Process{
+			Group:                    program.Name, // TODO(sgc): Add back groups,
+			Name:                     program.Name,
+			Directory:                program.Directory,
+			Command:                  program.Command,
+			Environment:              program.Environment,
+			User:                     program.User,
+			ExitCodes:                program.ExitCodes,
+			Priority:                 program.Priority,
+			RestartPause:             time.Duration(program.RestartPause),
+			StartRetries:             program.StartRetries,
+			StartSeconds:             time.Duration(program.StartSeconds),
+			Cron:                     program.Cron,
+			AutoStart:                program.AutoStart,
+			RestartDirectoryMonitor:  program.RestartDirectoryMonitor,
+			RestartFilePattern:       program.RestartFilePattern,
+			RestartWhenBinaryChanged: program.RestartWhenBinaryChanged,
+			StopSignals:              program.StopSignals,
+			StopWaitSeconds:          time.Duration(program.StopWaitSeconds),
+			StopAsGroup:              program.StopAsGroup,
+			KillAsGroup:              program.KillAsGroup,
+			StdoutLogFile:            program.StdoutLogFile,
+			StdoutLogfileBackups:     program.StdoutLogfileBackups,
+			StdoutLogFileMaxBytes:    program.StdoutLogFileMaxBytes,
+			RedirectStderr:           program.RedirectStderr,
+			StderrLogFile:            program.StderrLogFile,
+			StderrLogfileBackups:     program.StderrLogfileBackups,
+			StderrLogFileMaxBytes:    program.StderrLogFileMaxBytes,
+			DependsOn:                program.DependsOn,
+		}
 
 		if as := program.AutoRestart; as != nil {
 			if *as {
@@ -53,35 +100,6 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) {
 			proc.AutoRestart = AutoStartModeDefault
 		}
 
-		proc.Group = program.Name // TODO(sgc): Add back groups
-		proc.Name = program.Name
-		proc.Directory = program.Directory
-		proc.Command = program.Command
-		proc.Environment = program.Environment
-		proc.User = program.User
-		proc.ExitCodes = program.ExitCodes
-		proc.Priority = program.Priority
-		proc.RestartPause = time.Duration(program.RestartPause)
-		proc.StartRetries = program.StartRetries
-		proc.StartSeconds = time.Duration(program.StartSeconds)
-		proc.Cron = program.Cron
-		proc.AutoStart = program.AutoStart
-		proc.RestartDirectoryMonitor = program.RestartDirectoryMonitor
-		proc.RestartFilePattern = program.RestartFilePattern
-		proc.RestartWhenBinaryChanged = program.RestartWhenBinaryChanged
-		proc.StopSignals = program.StopSignals
-		proc.StopWaitSeconds = time.Duration(program.StopWaitSeconds)
-		proc.StopAsGroup = program.StopAsGroup
-		proc.KillAsGroup = program.KillAsGroup
-		proc.StdoutLogFile = program.StdoutLogFile
-		proc.StdoutLogfileBackups = program.StdoutLogfileBackups
-		proc.StdoutLogFileMaxBytes = program.StdoutLogFileMaxBytes
-		proc.RedirectStderr = program.RedirectStderr
-		proc.StderrLogFile = program.StderrLogFile
-		proc.StderrLogfileBackups = program.StderrLogfileBackups
-		proc.StderrLogFileMaxBytes = program.StderrLogFileMaxBytes
-		proc.DependsOn = program.DependsOn
-
 		raw, _ := txn.First("process", "id", program.Name)
 		if orig, ok := raw.(*Process); ok && !diff.Changed(orig, proc) {
 			continue
@@ -90,6 +108,13 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) {
 			panic(err)
 		}
 	}
+
+	deleted := strset.Difference(prev, next)
+	if deleted.Size() > 0 {
+		_, _ = txn.DeleteAll("process", "id", cast.ToSlice(deleted.List())...)
+	}
+
+	return nil
 }
 
 func (u *updater) applyHttpServer(txn *memdb.Txn, m *model.Root) {

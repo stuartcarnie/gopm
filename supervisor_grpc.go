@@ -2,6 +2,7 @@ package gopm
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
@@ -150,40 +151,60 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 		return status.Error(codes.NotFound, "Process not found")
 	}
 
-	var ok bool
-	var compositeLogger *logger.CompositeLogger = nil
+	var (
+		ok              bool
+		compositeLogger *logger.CompositeLogger
+		backlog         *process.RingBuffer
+	)
 	if req.Device == rpc.LogDevice_Stdout {
 		compositeLogger, ok = proc.StdoutLog.(*logger.CompositeLogger)
+		backlog = proc.StdoutBacklog
 	} else {
 		compositeLogger, ok = proc.StderrLog.(*logger.CompositeLogger)
+		backlog = proc.StderrBacklog
 	}
-	if ok {
-		ch := make(chan []byte, 100)
-		clog := logger.NewChanLogger(ch)
-		compositeLogger.AddLogger(clog)
-		var (
-			res rpc.TailLogResponse
-			ctx = stream.Context()
-		)
+	if !ok {
+		return errors.New("cannot register with existing logger")
+	}
 
-	READ:
-		for {
-			select {
-			case buf := <-ch:
-				res.Lines = buf
-				err := stream.Send(&res)
-				clog.PutBuffer(buf)
-				if err != nil {
-					break READ
-				}
-
-			case <-ctx.Done():
-				break READ
+	var (
+		ctx = stream.Context()
+		res rpc.TailLogResponse
+	)
+	if req.BacklogLines > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			res.Lines = lastNLines(backlog.Bytes(), int(req.BacklogLines))
+			if err := stream.Send(&res); err != nil {
+				return err
 			}
 		}
-		compositeLogger.RemoveLogger(clog)
-		_ = clog.Close()
 	}
+
+	// Register the new logger and begin streaming the contents
+	ch := make(chan []byte, 100)
+	clog := logger.NewChanLogger(ch)
+	compositeLogger.AddLogger(clog)
+
+READ:
+	for {
+		select {
+		case buf := <-ch:
+			res.Lines = buf
+			err := stream.Send(&res)
+			clog.PutBuffer(buf)
+			if err != nil {
+				break READ
+			}
+		case <-ctx.Done():
+			break READ
+		}
+	}
+	compositeLogger.RemoveLogger(clog)
+	_ = clog.Close()
+
 	return nil
 }
 
@@ -235,4 +256,29 @@ func (s *Supervisor) SignalAllProcesses(_ context.Context, req *rpc.SignalProces
 	})
 
 	return &res, nil
+}
+
+// lastNLines walks backwards through a buffer to identify the location of the
+// newline preceeding the Nth line of the content.
+func lastNLines(b []byte, n int) []byte {
+	if len(b) == 0 {
+		return b
+	}
+
+	count := 0
+	if b[len(b)-1] == '\n' {
+		count = -1
+	}
+
+	i := len(b) - 1
+	for ; i > 0; i-- {
+		if b[i] == '\n' {
+			count++
+		}
+		if count == n {
+			break
+		}
+	}
+
+	return b[i+1:]
 }

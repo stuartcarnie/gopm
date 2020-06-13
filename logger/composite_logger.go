@@ -9,7 +9,7 @@ type CompositeLogger struct {
 }
 
 // NewCompositeLogger create a new CompositeLogger object
-func NewCompositeLogger(loggers []Logger) *CompositeLogger {
+func NewCompositeLogger(loggers ...Logger) *CompositeLogger {
 	return &CompositeLogger{loggers: loggers}
 }
 

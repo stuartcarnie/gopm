@@ -4,7 +4,7 @@ import "sync"
 
 // CompositeLogger dispatch the log message to other loggers
 type CompositeLogger struct {
-	lock    sync.Mutex
+	mu      sync.Mutex
 	loggers []Logger
 }
 
@@ -15,15 +15,15 @@ func NewCompositeLogger(loggers []Logger) *CompositeLogger {
 
 // AddLogger add a logger to receive the log data
 func (cl *CompositeLogger) AddLogger(logger Logger) {
-	cl.lock.Lock()
-	defer cl.lock.Unlock()
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
 	cl.loggers = append(cl.loggers, logger)
 }
 
 // RemoveLogger remove the previous added logger
 func (cl *CompositeLogger) RemoveLogger(logger Logger) {
-	cl.lock.Lock()
-	defer cl.lock.Unlock()
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
 	for i, t := range cl.loggers {
 		if t == logger {
 			cl.loggers = append(cl.loggers[:i], cl.loggers[i+1:]...)
@@ -34,8 +34,8 @@ func (cl *CompositeLogger) RemoveLogger(logger Logger) {
 
 // Write dispatch the log data to loggers added by AddLogger() call
 func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
-	cl.lock.Lock()
-	defer cl.lock.Unlock()
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
 
 	for i, logger := range cl.loggers {
 		if i == 0 {
@@ -49,8 +49,8 @@ func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
 
 // Close close all the loggers added by AddLogger() call
 func (cl *CompositeLogger) Close() (err error) {
-	cl.lock.Lock()
-	defer cl.lock.Unlock()
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
 
 	for i, logger := range cl.loggers {
 		if i == 0 {
@@ -60,16 +60,6 @@ func (cl *CompositeLogger) Close() (err error) {
 		}
 	}
 	return
-}
-
-// SetPid set pid to all the loggers added by AddLogger() call
-func (cl *CompositeLogger) SetPid(pid int) {
-	cl.lock.Lock()
-	defer cl.lock.Unlock()
-
-	for _, logger := range cl.loggers {
-		logger.SetPid(pid)
-	}
 }
 
 // ReadLog read log data from first logger

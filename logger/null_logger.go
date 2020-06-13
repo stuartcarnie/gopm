@@ -14,10 +14,6 @@ func NewNullLogger() *NullLogger {
 	return &NullLogger{}
 }
 
-// SetPid set the pid of program
-func (l *NullLogger) SetPid(pid int) {
-}
-
 // Write write the log to this logger
 func (l *NullLogger) Write(p []byte) (int, error) {
 	return len(p), nil

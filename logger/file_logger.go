@@ -19,21 +19,16 @@ type FileLogger struct {
 }
 
 // NewFileLogger create a FileLogger object
-func NewFileLogger(name string, maxSize int64, backups int, locker sync.Locker) *FileLogger {
+func NewFileLogger(name string, maxSize int64, backups int) *FileLogger {
 	logger := &FileLogger{
 		name:     name,
 		maxSize:  maxSize,
 		backups:  backups,
 		fileSize: 0,
 		file:     nil,
-		locker:   locker,
 	}
 	logger.openFile(false)
 	return logger
-}
-
-// SetPid set the pid of the program
-func (l *FileLogger) SetPid(pid int) {
 }
 
 // open the file and truncate the file if trunc is true
@@ -70,17 +65,11 @@ func (l *FileLogger) backupFiles() {
 
 // ClearCurLogFile clear the current log file contents
 func (l *FileLogger) ClearCurLogFile() error {
-	l.locker.Lock()
-	defer l.locker.Unlock()
-
 	return l.openFile(true)
 }
 
 // ClearAllLogFile clear all the log files
 func (l *FileLogger) ClearAllLogFile() error {
-	l.locker.Lock()
-	defer l.locker.Unlock()
-
 	for i := l.backups; i > 0; i-- {
 		logFile := fmt.Sprintf("%s.%d", l.name, i)
 		_, err := os.Stat(logFile)

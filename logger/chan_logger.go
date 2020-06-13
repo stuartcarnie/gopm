@@ -20,10 +20,6 @@ func NewChanLogger(recv chan []byte) *ChanLogger {
 	return &ChanLogger{recv: recv}
 }
 
-// SetPid set the program pid
-func (l *ChanLogger) SetPid(pid int) {
-}
-
 // Write write the log to channel
 func (l *ChanLogger) Write(p []byte) (int, error) {
 	buf := l.getBuffer()

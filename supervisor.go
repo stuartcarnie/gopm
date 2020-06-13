@@ -211,11 +211,11 @@ func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, r
 func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply *struct{ Success bool }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		zap.L().Error("program does not exist", zap.String("program", args.Name))
+		zap.L().Error("Process does not exist", zap.String("name", args.Name))
 		return fmt.Errorf("NOT_RUNNING")
 	}
 	if proc.State() != process.Running {
-		zap.L().Error("program does not run", zap.String("program", args.Name))
+		zap.L().Error("Process does not run", zap.String("name", args.Name))
 		return fmt.Errorf("NOT_RUNNING")
 	}
 	err := proc.SendProcessStdin(args.Chars)

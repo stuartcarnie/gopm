@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "gopm config schema",
+  "type": "object",
+  "properties": {
+    "grpc_server": {
+      "type": "object",
+      "required": ["address"],
+      "properties": {
+        "address": {
+          "type": "string"
+        }
+      }
+    },
+    "http_server": {
+      "type": "object",
+      "required": ["port"],
+      "properties": {
+        "port": {
+          "type": "string"
+        }
+      }
+    },
+    "programs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Program"
+      }
+    },
+    "file_system": {
+      "type": "object",
+      "required": ["root"],
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/File"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Program": {
+      "type": "object",
+      "required": ["name", "command"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^\\w+$"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\w+$": {"type": "string"}
+          }
+        },
+        "user": {
+          "type": "string"
+        },
+        "exit_codes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "restart_pause": {
+          "type": "integer"
+        },
+        "start_retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_seconds": {
+          "type": "integer"
+        },
+        "cron": {
+          "type": "string"
+        },
+        "auto_start": {
+          "type": "boolean"
+        },
+        "auto_restart": {
+          "type": "boolean"
+        },
+        "restart_directory_monitor": {
+          "description": "Path to a directory to monitor and automatically restart the process if changes are detected",
+          "type": "string"
+        },
+        "restart_file_pattern": {
+          "description": "A pattern used to monitor a path and automatically restart the process if changes are detected",
+          "type": "string"
+        },
+        "restart_when_binary_changed": {
+          "description": "Automatically restart the process if changes to the binary are detected",
+          "type": "boolean"
+        },
+        "stop_signals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "uniqueItems": true,
+            "enum": ["HUP", "INT", "QUIT", "KILL", "TERM", "USR1", "USR2"]
+          }
+        },
+        "stop_wait_seconds": {
+          "description": "The number of seconds to wait for the process to stop before killing",
+          "type": "integer"
+        },
+        "stop_as_group": {
+          "type": "boolean"
+        },
+        "kill_as_group": {
+          "type": "boolean"
+        },
+        "stdout_logfile": {
+          "type": "string"
+        },
+        "stdout_logfile_backups": {
+          "type": "integer"
+        },
+        "stdout_logfile_max_bytes": {
+          "type": "integer"
+        },
+        "redirect_stderr": {
+          "description": "Redirect STDERR to STDOUT",
+          "type": "boolean"
+        },
+        "stderr_logfile": {
+          "type": "string"
+        },
+        "stderr_logfile_backups": {
+          "type": "integer"
+        },
+        "stderr_logfile_max_bytes": {
+          "type": "integer"
+        },
+        "depends_on": {
+          "description": "A list of process names that must be started before starting this process",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "File": {
+      "type": "object",
+      "required": ["name", "path", "content"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^\\w+$"
+        },
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

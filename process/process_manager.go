@@ -31,10 +31,10 @@ func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Proc
 	if !ok {
 		proc = NewProcess(supervisorID, after)
 		pm.procs[after.Name] = proc
-		zap.L().Info("Created program", zap.String("program", after.Name))
+		zap.L().Info("Created process", zap.String("name", after.Name))
 	} else {
 		proc.UpdateConfig(after)
-		zap.L().Info("Updated program", zap.String("program", after.Name))
+		zap.L().Info("Updated process", zap.String("name", after.Name))
 	}
 
 	return proc
@@ -71,7 +71,7 @@ func (pm *Manager) createProcess(supervisorID string, process *config.Process) *
 		proc = NewProcess(supervisorID, process)
 		pm.procs[process.Name] = proc
 	}
-	zap.L().Info("Created program", zap.String("program", process.Name))
+	zap.L().Info("Created process", zap.String("name", process.Name))
 	return proc
 }
 

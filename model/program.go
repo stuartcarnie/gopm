@@ -3,8 +3,6 @@ package model
 import "github.com/creasty/defaults"
 
 type Program struct {
-	Group string `yaml:"-"`
-
 	Name                     string            `yaml:"name"`
 	Directory                string            `yaml:"directory"`
 	Command                  string            `yaml:"command"`

@@ -19,6 +19,13 @@ func (v *validator) Err() error {
 func (v *validator) Visit(node Node) Visitor {
 	switch n := node.(type) {
 	case *HTTPServer:
+		if len(n.Port) == 0 {
+			multierr.AppendInto(&v.err, errors.New("http_server port missing"))
+		}
+	case *GrpcServer:
+		if len(n.Address) == 0 {
+			multierr.AppendInto(&v.err, errors.New("grpc_server address missing"))
+		}
 
 	case *Program:
 		if len(n.Name) == 0 {

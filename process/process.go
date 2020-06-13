@@ -118,13 +118,11 @@ type Process struct {
 // NewProcess create a new Process
 func NewProcess(supervisorID string, cfg *config.Process) *Process {
 	proc := &Process{
-		supervisorID:  supervisorID,
-		config:        cfg,
-		log:           zap.L().With(zap.String("name", cfg.Name)),
-		state:         Stopped,
-		retryTimes:    new(int32),
-		StdoutBacklog: NewRingBuffer(backlogBytes),
-		StderrBacklog: NewRingBuffer(backlogBytes),
+		supervisorID: supervisorID,
+		config:       cfg,
+		log:          zap.L().With(zap.String("name", cfg.Name)),
+		state:        Stopped,
+		retryTimes:   new(int32),
 	}
 	proc.addToCron()
 	return proc
@@ -648,14 +646,17 @@ func (p *Process) setLog() {
 	cfg := p.Config()
 
 	p.StdoutLog = p.createLogger(p.StdoutLogfile(), int64(cfg.StdoutLogFileMaxBytes), cfg.StdoutLogfileBackups)
-	p.cmd.Stdout = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
+	p.StdoutBacklog = NewRingBuffer(backlogBytes)
 
 	if cfg.RedirectStderr {
 		p.StderrLog = p.StdoutLog
+		p.StderrBacklog = p.StdoutBacklog
 	} else {
 		p.StderrLog = p.createLogger(p.StderrLogfile(), int64(cfg.StderrLogFileMaxBytes), cfg.StderrLogfileBackups)
+		p.StderrBacklog = NewRingBuffer(backlogBytes)
 	}
 
+	p.cmd.Stdout = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
 	p.cmd.Stderr = io.MultiWriter(p.StderrLog, p.StderrBacklog)
 }
 

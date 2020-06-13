@@ -447,8 +447,8 @@ func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string
 	if proc == nil {
 		return fmt.Errorf("no such process: %s", args.Name)
 	}
-	// proc.StdoutBacklog.Empty()
-	// proc.StderrBacklog.Empty()
+	proc.StdoutBacklog.Empty()
+	proc.StderrBacklog.Empty()
 	err1 := proc.StdoutLog.ClearAllLogFile()
 	err2 := proc.StderrLog.ClearAllLogFile()
 	reply.Success = err1 == nil && err2 == nil
@@ -461,8 +461,8 @@ func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string
 // ClearAllProcessLogs clear the logs of all programs
 func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply *struct{ RPCTaskResults []RPCTaskResult }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		// proc.StdoutBacklog.Empty()
-		// proc.StderrBacklog.Empty()
+		proc.StdoutBacklog.Empty()
+		proc.StderrBacklog.Empty()
 		proc.StdoutLog.ClearAllLogFile()
 		proc.StderrLog.ClearAllLogFile()
 		procInfo := getProcessInfo(proc)

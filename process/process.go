@@ -123,8 +123,8 @@ func NewProcess(supervisorID string, cfg *config.Process) *Process {
 		log:           zap.L().With(zap.String("name", cfg.Name)),
 		state:         Stopped,
 		retryTimes:    new(int32),
-		StdoutBacklog: NewBacklog(backlogBytes),
-		StderrBacklog: NewBacklog(backlogBytes),
+		StdoutBacklog: NewRingBuffer(backlogBytes),
+		StderrBacklog: NewRingBuffer(backlogBytes),
 	}
 	proc.addToCron()
 	return proc

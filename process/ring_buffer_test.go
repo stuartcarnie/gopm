@@ -8,7 +8,7 @@ import (
 )
 
 func TestBacklog_MultipleWrites(t *testing.T) {
-	b := NewBacklog(8)
+	b := NewRingBuffer(8)
 	n, err := b.Write([]byte("hello world\n"))
 	require.NoError(t, err)
 	assert.Equal(t, 12, n)
@@ -20,7 +20,7 @@ func TestBacklog_MultipleWrites(t *testing.T) {
 }
 
 func TestBacklog_NewlineAtEndOfBuffer(t *testing.T) {
-	b := NewBacklog(10)
+	b := NewRingBuffer(10)
 	n, err := b.Write([]byte("hello world\nhello world\n"))
 	require.NoError(t, err)
 	assert.Equal(t, 24, n)

@@ -13,8 +13,8 @@ type RingBuffer struct {
 	w    int
 }
 
-// NewBacklog creates a new RingBuffer of a specific size in bytes.
-func NewBacklog(size int) *RingBuffer {
+// NewRingBuffer creates a new RingBuffer of a specific size in bytes.
+func NewRingBuffer(size int) *RingBuffer {
 	return &RingBuffer{
 		data: make([]byte, size),
 		size: size,

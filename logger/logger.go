@@ -21,7 +21,7 @@ func NewLogger(programName, logFile string, maxBytes int64, backups int) Logger 
 	for _, f := range files {
 		loggers = append(loggers, createLogger(programName, f, maxBytes, backups))
 	}
-	return NewCompositeLogger(loggers)
+	return NewCompositeLogger(loggers...)
 }
 
 func splitLogFile(logFile string) []string {

@@ -51,7 +51,8 @@ func (d deviceType) Type() string {
 }
 
 var tailLogOpt = struct {
-	device deviceType
+	backlogLines int
+	device       deviceType
 }{
 	device: DeviceTypeStdout,
 }
@@ -61,7 +62,10 @@ var tailLogCmd = cobra.Command{
 	Short: "Fetch logs for a process",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		req := rpc.TailLogRequest{Name: args[0]}
+		req := rpc.TailLogRequest{
+			Name:         args[0],
+			BacklogLines: int64(tailLogOpt.backlogLines),
+		}
 
 		switch tailLogOpt.device {
 		case DeviceTypeStdout:
@@ -93,4 +97,5 @@ var tailLogCmd = cobra.Command{
 
 func init() {
 	tailLogCmd.Flags().VarP(&tailLogOpt.device, "device", "d", "Device to tail (stderr|stdout)")
+	tailLogCmd.Flags().IntVarP(&tailLogOpt.backlogLines, "lines", "n", 0, "Number of lines to show from backlog")
 }

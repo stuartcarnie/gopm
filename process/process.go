@@ -58,6 +58,8 @@ const (
 
 	// Unknown the unknown state
 	Unknown = 1000
+
+	backlogBytes = 10 * 1024 // 10KB
 )
 
 var scheduler *cron.Cron = nil
@@ -101,14 +103,16 @@ type Process struct {
 	// true if process is starting
 	inStart bool
 	// true if the process is stopped by user
-	stopByUser bool
-	retryTimes *int32
-	mu         sync.RWMutex
-	stdin      io.WriteCloser
-	StdoutLog  logger.Logger
-	StderrLog  logger.Logger
-	cfgMu      sync.RWMutex // protects config access
-	config     *config.Process
+	stopByUser    bool
+	retryTimes    *int32
+	mu            sync.RWMutex
+	stdin         io.WriteCloser
+	StdoutLog     logger.Logger
+	StderrLog     logger.Logger
+	StdoutBacklog *RingBuffer
+	StderrBacklog *RingBuffer
+	cfgMu         sync.RWMutex // protects config access
+	config        *config.Process
 }
 
 // NewProcess create a new Process
@@ -158,9 +162,11 @@ func (p *Process) addToCron() {
 }
 
 func (p *Process) removeFromCron() {
-	s := p.Config().Cron
-	if len(s) == 0 {
-		return
+	if p.Config() != nil {
+		s := p.Config().Cron
+		if len(s) == 0 {
+			return
+		}
 	}
 
 	p.log.Info("Removing process from cron schedule")
@@ -640,15 +646,18 @@ func (p *Process) setLog() {
 	cfg := p.Config()
 
 	p.StdoutLog = p.createLogger(p.StdoutLogfile(), int64(cfg.StdoutLogFileMaxBytes), cfg.StdoutLogfileBackups)
-	p.cmd.Stdout = p.StdoutLog
+	p.StdoutBacklog = NewRingBuffer(backlogBytes)
 
 	if cfg.RedirectStderr {
 		p.StderrLog = p.StdoutLog
+		p.StderrBacklog = p.StdoutBacklog
 	} else {
 		p.StderrLog = p.createLogger(p.StderrLogfile(), int64(cfg.StderrLogFileMaxBytes), cfg.StderrLogfileBackups)
+		p.StderrBacklog = NewRingBuffer(backlogBytes)
 	}
 
-	p.cmd.Stderr = p.StderrLog
+	p.cmd.Stdout = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
+	p.cmd.Stderr = io.MultiWriter(p.StderrLog, p.StderrBacklog)
 }
 
 func (p *Process) createLogger(logFile string, maxBytes int64, backups int) logger.Logger {

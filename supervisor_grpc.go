@@ -18,7 +18,7 @@ import (
 var _ rpc.GopmServer = (*Supervisor)(nil)
 
 func (s *Supervisor) GetVersion(_ context.Context, _ *empty.Empty) (*rpc.VersionResponse, error) {
-	return &rpc.VersionResponse{Version: SupervisorVersion}, nil
+	return &rpc.VersionResponse{Version: Version}, nil
 }
 
 func getRpcProcessInfo(proc *process.Process) *rpc.ProcessInfo {
@@ -41,11 +41,14 @@ func getRpcProcessInfo(proc *process.Process) *rpc.ProcessInfo {
 }
 
 func (s *Supervisor) GetProcessInfo(_ context.Context, _ *empty.Empty) (*rpc.ProcessInfoResponse, error) {
-	var res rpc.ProcessInfoResponse
+
+	var processes rpc.ProcessInfos
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		res.Processes = append(res.Processes, getRpcProcessInfo(proc))
+		processes = append(processes, getRpcProcessInfo(proc))
 	})
-	return &res, nil
+
+	processes.SortByName()
+	return &rpc.ProcessInfoResponse{Processes: processes}, nil
 }
 
 func (s *Supervisor) StartProcess(_ context.Context, req *rpc.StartStopRequest) (*rpc.StartStopResponse, error) {

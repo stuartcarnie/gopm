@@ -21,7 +21,7 @@ service Gopm {
 }
 
 message VersionResponse {
-    string Version = 1;
+    string version = 1;
 }
 
 message ProcessInfoResponse {
@@ -29,20 +29,20 @@ message ProcessInfoResponse {
 }
 
 message ProcessInfo {
-    string Name = 1;
-    string Group = 2;
-    string Description = 3;
-    int64 Start = 4;
-    int64 Stop = 5;
-    int64 Now = 6;
-    int64 State = 7;
-    string StateName = 8;
-    string SpawnErr = 9;
-    int64 ExitStatus = 10;
-    string Logfile = 11;
-    string StdoutLogfile = 12;
-    string StderrLogfile = 13;
-    int64 Pid = 14;
+    string name = 1;
+    string group = 2;
+    string description = 3;
+    int64 start = 4;
+    int64 stop = 5;
+    int64 now = 6;
+    int64 state = 7;
+    string state_name = 8;
+    string spawn_err = 9;
+    int64 exit_status = 10;
+    string logfile = 11;
+    string stdout_logfile = 12;
+    string stderr_logfile = 13;
+    int64 pid = 14;
 }
 
 message StartStopRequest {
@@ -59,9 +59,9 @@ message StartStopAllRequest {
 }
 
 message ReloadConfigResponse {
-    repeated string AddedGroup = 1;
-    repeated string ChangedGroup = 2;
-    repeated string RemovedGroup = 3;
+    repeated string added_group = 1;
+    repeated string changed_group = 2;
+    repeated string removed_group = 3;
 }
 
 enum LogDevice {

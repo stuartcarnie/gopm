@@ -13,6 +13,9 @@ ifeq ($(RELEASE),1)
 RELEASE_TAG=release
 endif
 
+webgui/js/bundle.js: rpc/javascript/gopm.ts rpc/javascript/service_grpc_web_pb.js rpc/javascript/service_pb.js
+	cd rpc/javascript && npx webpack
+
 bin/gopm: GO_TAGS += $(RELEASE_TAG)
 bin/gopm: ./cmd/gopm 
 	$(GO_GENERATE)

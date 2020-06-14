@@ -7,3 +7,4 @@ debug
 bin/
 assets_generated/
 *.env
+etc/

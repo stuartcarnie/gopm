@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 	"github.com/stuartcarnie/gopm/config"
+	"github.com/stuartcarnie/gopm/process"
 	"github.com/stuartcarnie/gopm/rpc"
 	"google.golang.org/grpc"
 )
@@ -43,6 +45,7 @@ func init() {
 	rootCmd.AddCommand(&shutdownCmd)
 	rootCmd.AddCommand(&stopAllCmd)
 	rootCmd.AddCommand(&startAllCmd)
+	rootCmd.AddCommand(&topCmd)
 }
 
 func main() {
@@ -121,4 +124,24 @@ func (ctl *Control) inProcessMap(procInfo *rpc.ProcessInfo, processesMap map[str
 		}
 	}
 	return false
+}
+
+type processResourceUsage struct {
+	*rpc.ProcessInfo
+	Usage *process.ResourceUsage
+}
+
+func (ctl *Control) printTop(processes []*processResourceUsage) {
+	tw := tabwriter.NewWriter(os.Stdout, 10, 4, 5, ' ', 0)
+	for _, p := range processes {
+		_, _ = fmt.Fprintln(tw, strings.Join([]string{
+			p.GetFullName(),
+			strconv.Itoa(int(p.Pid)),
+			fmt.Sprintf("%.1f%%", p.Usage.CPU),
+			fmt.Sprintf("%s (%.1f%%)", p.Usage.HumanResident(), p.Usage.Memory),
+		},
+			"\t",
+		))
+	}
+	tw.Flush()
 }

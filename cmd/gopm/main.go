@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/stuartcarnie/gopm"
 	"github.com/stuartcarnie/gopm/internal/zap/encoder"
@@ -65,8 +66,24 @@ func runServer() error {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-sigs
-	zap.L().Info("Received signal to stop all processes and exit", zap.Stringer("signal", sig))
+
+FOR:
+	for {
+		sig := <-sigs
+		zap.L().Info("Received signal to stop all processes and exit", zap.Stringer("signal", sig))
+		if rootOpt.QuitDelay == 0 {
+			break
+		}
+
+		zap.L().Info("Press CTRL-C again to quit", zap.Stringer("signal", sig))
+		select {
+		case <-sigs:
+			break FOR
+		case <-time.After(rootOpt.QuitDelay):
+			zap.L().Info("Not quitting", zap.Stringer("signal", sig))
+		}
+	}
+
 	s.GetManager().StopAllProcesses()
 
 	return nil
@@ -77,6 +94,7 @@ var (
 		Configuration string
 		EnvFile       string
 		Shell         string
+		QuitDelay     time.Duration
 	}{}
 
 	rootCmd = cobra.Command{
@@ -103,6 +121,7 @@ func main() {
 	flags := rootCmd.Flags()
 	flags.StringVar(&rootOpt.EnvFile, "env-file", "", "An optional environment file")
 	flags.StringVar(&rootOpt.Shell, "shell", getDefaultShell(), "Specify an alternate shell path")
+	flags.DurationVar(&rootOpt.QuitDelay, "quit-delay", time.Second, "Time to wait for second CTRL-C before quitting. 0 to quit immediately.")
 	_ = rootCmd.MarkFlagRequired("config")
 
 	if err := rootCmd.Execute(); err != nil {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stuartcarnie/gopm/config"
-	"go.uber.org/zap"
 )
 
 func TestProcessMgrAdd(t *testing.T) {
@@ -18,10 +17,7 @@ func TestProcessMgrAdd(t *testing.T) {
 func TestProcMgrRemove(t *testing.T) {
 	var procs = NewManager()
 	procs.Clear()
-	procs.Add("test1", &Process{
-		log:    zap.NewNop(),
-		config: &config.Process{},
-	})
+	procs.Add("test1", NewProcess("1", &config.Process{}))
 	proc := procs.RemoveProcess("test1")
 	assert.NotNil(t, proc, "Failed to remove process")
 	proc = procs.RemoveProcess("test1")

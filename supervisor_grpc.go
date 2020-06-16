@@ -2,7 +2,6 @@ package gopm
 
 import (
 	"context"
-	"errors"
 	"os"
 	"time"
 
@@ -154,20 +153,11 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 		return status.Error(codes.NotFound, "Process not found")
 	}
 
-	var (
-		ok              bool
-		compositeLogger *logger.CompositeLogger
-		backlog         *process.RingBuffer
-	)
-	if req.Device == rpc.LogDevice_Stdout {
-		compositeLogger, ok = proc.StdoutLog.(*logger.CompositeLogger)
-		backlog = proc.StdoutBacklog
-	} else {
-		compositeLogger, ok = proc.StderrLog.(*logger.CompositeLogger)
+	compositeLogger := proc.StdoutLog
+	backlog := proc.StdoutBacklog
+	if req.Device == rpc.LogDevice_Stderr {
+		compositeLogger = proc.StderrLog
 		backlog = proc.StderrBacklog
-	}
-	if !ok {
-		return errors.New("cannot register with existing logger")
 	}
 
 	var (

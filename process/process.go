@@ -103,21 +103,28 @@ type Process struct {
 	// true if process is starting
 	inStart bool
 	// true if the process is stopped by user
-	stopByUser    bool
-	retryTimes    *int32
-	mu            sync.RWMutex
-	stdin         io.WriteCloser
-	StdoutLog     logger.Logger
-	StderrLog     logger.Logger
-	StdoutBacklog *RingBuffer
-	StderrBacklog *RingBuffer
-	cfgMu         sync.RWMutex // protects config access
-	config        *config.Process
+	stopByUser       bool
+	retryTimes       *int32
+	mu               sync.RWMutex
+	stdin            io.WriteCloser
+	StdoutLog        *logger.CompositeLogger
+	StderrLog        *logger.CompositeLogger
+	currentStdoutLog logger.Logger
+	currentStderrLog logger.Logger
+	StdoutBacklog    *RingBuffer
+	StderrBacklog    *RingBuffer
+	cfgMu            sync.RWMutex // protects config access
+	config           *config.Process
 }
 
 // NewProcess create a new Process
 func NewProcess(supervisorID string, cfg *config.Process) *Process {
 	proc := &Process{
+		StdoutLog:     logger.NewCompositeLogger(),
+		StderrLog:     logger.NewCompositeLogger(),
+		StdoutBacklog: NewRingBuffer(backlogBytes),
+		StderrBacklog: NewRingBuffer(backlogBytes),
+
 		supervisorID: supervisorID,
 		config:       cfg,
 		log:          zap.L().With(zap.String("name", cfg.Name)),
@@ -237,6 +244,8 @@ func (p *Process) Start(wait bool) {
 func (p *Process) Destroy(wait bool) {
 	p.removeFromCron()
 	p.Stop(wait)
+	p.StdoutLog.Close()
+	p.StderrLog.Close()
 }
 
 // Name returns the name of program
@@ -415,6 +424,8 @@ func (p *Process) createProgramCommand() error {
 	bin := filepath.Join(p.cmd.Dir, args[0])
 	p.setProgramRestartChangeMonitor(bin)
 
+	p.log.Info("created program command")
+
 	p.stdin, _ = p.cmd.StdinPipe()
 	return nil
 }
@@ -462,8 +473,8 @@ func (p *Process) waitForExit() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.stopTime = time.Now().Round(time.Millisecond)
-	p.StdoutLog.Close()
-	p.StderrLog.Close()
+	p.currentStdoutLog.Close()
+	p.currentStderrLog.Close()
 }
 
 // fail to start the program
@@ -645,19 +656,24 @@ func (p *Process) setDir() {
 func (p *Process) setLog() {
 	cfg := p.Config()
 
-	p.StdoutLog = p.createLogger(p.StdoutLogfile(), int64(cfg.StdoutLogFileMaxBytes), cfg.StdoutLogfileBackups)
-	p.StdoutBacklog = NewRingBuffer(backlogBytes)
+	// Remove the current loggers.
+	p.StdoutLog.RemoveLogger(p.currentStdoutLog)
+	p.StderrLog.RemoveLogger(p.currentStderrLog)
 
-	if cfg.RedirectStderr {
-		p.StderrLog = p.StdoutLog
-		p.StderrBacklog = p.StdoutBacklog
-	} else {
-		p.StderrLog = p.createLogger(p.StderrLogfile(), int64(cfg.StderrLogFileMaxBytes), cfg.StderrLogfileBackups)
-		p.StderrBacklog = NewRingBuffer(backlogBytes)
-	}
+	// Create a new stdout and stderr loggers using the most up-to-date
+	// configuration and attach them to the composite logger.
+	p.currentStdoutLog = p.createLogger(p.StdoutLogfile(), int64(cfg.StdoutLogFileMaxBytes), cfg.StdoutLogfileBackups)
+	p.currentStderrLog = p.createLogger(p.StderrLogfile(), int64(cfg.StderrLogFileMaxBytes), cfg.StderrLogfileBackups)
+	p.StdoutLog.AddLogger(p.currentStdoutLog)
+	p.StderrLog.AddLogger(p.currentStderrLog)
 
+	// Attach the loggers and the backlogs to the command.
 	p.cmd.Stdout = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
-	p.cmd.Stderr = io.MultiWriter(p.StderrLog, p.StderrBacklog)
+	if cfg.RedirectStderr {
+		p.cmd.Stderr = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
+	} else {
+		p.cmd.Stderr = io.MultiWriter(p.StderrLog, p.StderrBacklog)
+	}
 }
 
 func (p *Process) createLogger(logFile string, maxBytes int64, backups int) logger.Logger {

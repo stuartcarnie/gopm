@@ -48,6 +48,7 @@ message ProcessInfo {
 message StartStopRequest {
     string name = 1;
     bool wait = 2;
+    map<string, string> labels = 3;
 }
 
 message StartStopResponse {
@@ -92,4 +93,5 @@ enum ProcessSignal {
 message SignalProcessRequest {
     string name = 1;
     ProcessSignal signal = 2;
+    map<string, string> labels = 3;
 }

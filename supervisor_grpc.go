@@ -51,28 +51,24 @@ func (s *Supervisor) GetProcessInfo(_ context.Context, _ *empty.Empty) (*rpc.Pro
 }
 
 func (s *Supervisor) StartProcess(_ context.Context, req *rpc.StartStopRequest) (*rpc.StartStopResponse, error) {
-	procs := s.procMgr.FindMatch(req.Name)
-
+	procs := s.procMgr.FindMatchWithLabels(req.Name, req.Labels)
 	if len(procs) <= 0 {
-		return nil, status.Error(codes.NotFound, "Process not found")
+		return nil, status.Error(codes.NotFound, "No processes found")
 	}
-
 	for _, proc := range procs {
 		proc.Start(req.Wait)
 	}
-
 	return &rpc.StartStopResponse{}, nil
 }
 
 func (s *Supervisor) StopProcess(_ context.Context, req *rpc.StartStopRequest) (*rpc.StartStopResponse, error) {
-	procs := s.procMgr.FindMatch(req.Name)
+	procs := s.procMgr.FindMatchWithLabels(req.Name, req.Labels)
 	if len(procs) <= 0 {
-		return nil, status.Error(codes.NotFound, "Process not found")
+		return nil, status.Error(codes.NotFound, "No processes found")
 	}
 	for _, proc := range procs {
 		proc.Stop(req.Wait)
 	}
-
 	return &rpc.StartStopResponse{}, nil
 }
 
@@ -202,9 +198,9 @@ READ:
 }
 
 func (s *Supervisor) SignalProcess(_ context.Context, req *rpc.SignalProcessRequest) (*empty.Empty, error) {
-	procs := s.procMgr.FindMatch(req.Name)
+	procs := s.procMgr.FindMatchWithLabels(req.Name, req.Labels)
 	if len(procs) <= 0 {
-		return nil, status.Error(codes.NotFound, "Process not found")
+		return nil, status.Error(codes.NotFound, "No processes found")
 	}
 	sig, err := req.Signal.ToSignal()
 	if err != nil {

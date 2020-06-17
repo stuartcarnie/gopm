@@ -88,6 +88,7 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) error {
 			StderrLogfileBackups:     program.StderrLogfileBackups,
 			StderrLogFileMaxBytes:    program.StderrLogFileMaxBytes,
 			DependsOn:                program.DependsOn,
+			Labels:                   program.Labels,
 		}
 
 		if as := program.AutoRestart; as != nil {

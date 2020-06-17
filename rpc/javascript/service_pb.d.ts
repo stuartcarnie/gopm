@@ -117,6 +117,9 @@ export class StartStopRequest extends jspb.Message {
   getWait(): boolean;
   setWait(value: boolean): StartStopRequest;
 
+  getLabelsMap(): jspb.Map<string, string>;
+  clearLabelsMap(): StartStopRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): StartStopRequest.AsObject;
   static toObject(includeInstance: boolean, msg: StartStopRequest): StartStopRequest.AsObject;
@@ -129,6 +132,7 @@ export namespace StartStopRequest {
   export type AsObject = {
     name: string,
     wait: boolean,
+    labelsMap: Array<[string, string]>,
   }
 }
 
@@ -249,6 +253,9 @@ export class SignalProcessRequest extends jspb.Message {
   getSignal(): ProcessSignal;
   setSignal(value: ProcessSignal): SignalProcessRequest;
 
+  getLabelsMap(): jspb.Map<string, string>;
+  clearLabelsMap(): SignalProcessRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SignalProcessRequest.AsObject;
   static toObject(includeInstance: boolean, msg: SignalProcessRequest): SignalProcessRequest.AsObject;
@@ -261,6 +268,7 @@ export namespace SignalProcessRequest {
   export type AsObject = {
     name: string,
     signal: ProcessSignal,
+    labelsMap: Array<[string, string]>,
   }
 }
 

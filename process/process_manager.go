@@ -123,6 +123,42 @@ func (pm *Manager) FindMatch(name string) []*Process {
 	return result
 }
 
+// FindMatchWithLabels matches Processes by name and labels.
+func (pm *Manager) FindMatchWithLabels(name string, labels map[string]string) []*Process {
+	processes := pm.FindMatch(name)
+
+	// If we locate some matches by name, and we have labels presented as well,
+	// continue filtering using those labels.
+	if len(processes) > 0 {
+		if len(labels) == 0 {
+			return processes
+		}
+
+		var result []*Process
+		for _, p := range processes {
+			if p.MatchLabels(labels) {
+				result = append(result, p)
+			}
+		}
+		return result
+	}
+
+	// Don't fall-through here if we're attempting to look for a name that
+	// hasn't matched anything and we're also using labels.
+	if name != "" {
+		return nil
+	}
+
+	// Filter on all processes, because we're using labels to locate matches.
+	var result []*Process
+	pm.ForEachProcess(func(p *Process) {
+		if p.MatchLabels(labels) {
+			result = append(result, p)
+		}
+	})
+	return result
+}
+
 // Clear clear all the processes
 func (pm *Manager) Clear() {
 	pm.lock.Lock()

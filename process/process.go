@@ -119,6 +119,11 @@ type Process struct {
 
 // NewProcess create a new Process
 func NewProcess(supervisorID string, cfg *config.Process) *Process {
+	fields := []zap.Field{zap.String("name", cfg.Name)}
+	for k, v := range cfg.Labels {
+		fields = append(fields, zap.String(k, v))
+	}
+
 	proc := &Process{
 		StdoutLog:     logger.NewCompositeLogger(),
 		StderrLog:     logger.NewCompositeLogger(),
@@ -127,12 +132,31 @@ func NewProcess(supervisorID string, cfg *config.Process) *Process {
 
 		supervisorID: supervisorID,
 		config:       cfg,
-		log:          zap.L().With(zap.String("name", cfg.Name)),
+		log:          zap.L().With(fields...),
 		state:        Stopped,
 		retryTimes:   new(int32),
 	}
 	proc.addToCron()
 	return proc
+}
+
+// MatchLabels sees if a Process's label-set matches some search set.
+func (p *Process) MatchLabels(labels map[string]string) bool {
+	if len(labels) == 0 {
+		return false
+	}
+
+	cfg := p.Config()
+	if len(cfg.Labels) == 0 {
+		return false
+	}
+	for k, v := range labels {
+		tv, ok := cfg.Labels[k]
+		if !ok || tv != v {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Process) UpdateConfig(config *config.Process) {

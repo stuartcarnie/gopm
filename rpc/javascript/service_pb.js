@@ -1079,7 +1079,8 @@ proto.gopm.rpc.StartStopRequest.prototype.toObject = function(opt_includeInstanc
 proto.gopm.rpc.StartStopRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    wait: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+    wait: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    labelsMap: (f = msg.getLabelsMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -1124,6 +1125,12 @@ proto.gopm.rpc.StartStopRequest.deserializeBinaryFromReader = function(msg, read
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setWait(value);
       break;
+    case 3:
+      var value = msg.getLabelsMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
+         });
+      break;
     default:
       reader.skipField();
       break;
@@ -1167,6 +1174,10 @@ proto.gopm.rpc.StartStopRequest.serializeBinaryToWriter = function(message, writ
       f
     );
   }
+  f = message.getLabelsMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(3, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
+  }
 };
 
 
@@ -1204,6 +1215,28 @@ proto.gopm.rpc.StartStopRequest.prototype.getWait = function() {
 proto.gopm.rpc.StartStopRequest.prototype.setWait = function(value) {
   return jspb.Message.setProto3BooleanField(this, 2, value);
 };
+
+
+/**
+ * map<string, string> labels = 3;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,string>}
+ */
+proto.gopm.rpc.StartStopRequest.prototype.getLabelsMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,string>} */ (
+      jspb.Message.getMapField(this, 3, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.gopm.rpc.StartStopRequest} returns this
+ */
+proto.gopm.rpc.StartStopRequest.prototype.clearLabelsMap = function() {
+  this.getLabelsMap().clear();
+  return this;};
 
 
 
@@ -2068,7 +2101,8 @@ proto.gopm.rpc.SignalProcessRequest.prototype.toObject = function(opt_includeIns
 proto.gopm.rpc.SignalProcessRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    signal: jspb.Message.getFieldWithDefault(msg, 2, 0)
+    signal: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    labelsMap: (f = msg.getLabelsMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -2113,6 +2147,12 @@ proto.gopm.rpc.SignalProcessRequest.deserializeBinaryFromReader = function(msg, 
       var value = /** @type {!proto.gopm.rpc.ProcessSignal} */ (reader.readEnum());
       msg.setSignal(value);
       break;
+    case 3:
+      var value = msg.getLabelsMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
+         });
+      break;
     default:
       reader.skipField();
       break;
@@ -2156,6 +2196,10 @@ proto.gopm.rpc.SignalProcessRequest.serializeBinaryToWriter = function(message, 
       f
     );
   }
+  f = message.getLabelsMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(3, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
+  }
 };
 
 
@@ -2193,6 +2237,28 @@ proto.gopm.rpc.SignalProcessRequest.prototype.getSignal = function() {
 proto.gopm.rpc.SignalProcessRequest.prototype.setSignal = function(value) {
   return jspb.Message.setProto3EnumField(this, 2, value);
 };
+
+
+/**
+ * map<string, string> labels = 3;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,string>}
+ */
+proto.gopm.rpc.SignalProcessRequest.prototype.getLabelsMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,string>} */ (
+      jspb.Message.getMapField(this, 3, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.gopm.rpc.SignalProcessRequest} returns this
+ */
+proto.gopm.rpc.SignalProcessRequest.prototype.clearLabelsMap = function() {
+  this.getLabelsMap().clear();
+  return this;};
 
 
 /**

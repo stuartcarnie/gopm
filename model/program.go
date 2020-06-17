@@ -31,6 +31,7 @@ type Program struct {
 	StderrLogfileBackups     int               `yaml:"stderr_logfile_backups" default:"10"`
 	StderrLogFileMaxBytes    int               `yaml:"stderr_logfile_max_bytes" default:"52428800"`
 	DependsOn                []string          `yaml:"depends_on"`
+	Labels                   map[string]string `yaml:"labels"`
 }
 
 func (p *Program) UnmarshalYAML(f func(interface{}) error) error {

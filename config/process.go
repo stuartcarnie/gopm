@@ -45,6 +45,7 @@ type Process struct {
 	StderrLogfileBackups     int
 	StderrLogFileMaxBytes    int
 	DependsOn                []string
+	Labels                   map[string]string
 }
 
 var (

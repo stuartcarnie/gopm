@@ -10,21 +10,43 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var startOpt = struct {
+	labels map[string]string
+}{}
+
 var startCmd = cobra.Command{
 	Use:   "start",
 	Short: "Start a list of processes",
-	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		for _, name := range args {
-			req := rpc.StartStopRequest{Name: name, Wait: true}
+		start := func(name string, labels map[string]string) error {
+			req := rpc.StartStopRequest{
+				Name:   name,
+				Wait:   true,
+				Labels: labels,
+			}
 			_, err := control.client.StartProcess(context.Background(), &req)
 			if status.Code(err) == codes.NotFound {
-				fmt.Printf("Process not found: %s\n", name)
+				fmt.Printf("No processes found: name=%q labels=%s\n", name, labels)
 			} else if err != nil {
 				return err
 			}
-			fmt.Printf("Process started: %s\n", name)
+
+			return nil
+		}
+		if len(args) == 0 {
+			if err := start("", startOpt.labels); err != nil {
+				return err
+			}
+		}
+		for _, name := range args {
+			if err := start(name, startOpt.labels); err != nil {
+				return err
+			}
 		}
 		return nil
 	},
+}
+
+func init() {
+	startCmd.Flags().StringToStringVarP(&startOpt.labels, "labels", "l", map[string]string{}, "Labels to apply to")
 }

@@ -1,0 +1,30 @@
+name: Tests
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  go-test:
+    name: Go Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.14
+      id: go
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    # TODO(brett): This keeps seeing adding "google.golang.org/protobuf v1.23.0"
+    # and failing.
+    # - name: Verify Tidy
+    #   run: |
+    #     make RELEASE=1
+    #     go mod tidy
+    #     git diff --exit-code
+
+    - name: Test
+      run: go test -v ./...

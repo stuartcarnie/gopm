@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -61,6 +62,10 @@ func runServer() error {
 
 	s := gopm.NewSupervisor(rootOpt.Configuration)
 	if err := s.Reload(); err != nil {
+		// Ignore config loading errors, because the Supervisor logs those.
+		if errors.As(err, &gopm.SupervisorConfigError{}) {
+			return nil
+		}
 		return err
 	}
 

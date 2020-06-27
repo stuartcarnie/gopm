@@ -59,10 +59,6 @@ func (s *Supervisor) IsRestarting() bool {
 // Reload reloads the supervisor configuration
 func (s *Supervisor) Reload() error {
 	changes, err := s.config.LoadPath(s.configFile)
-	if len(changes) == 0 {
-		return nil
-	}
-
 	if err != nil {
 		var el Errors
 		if errors.As(err, &el) {
@@ -75,7 +71,11 @@ func (s *Supervisor) Reload() error {
 			zap.L().Error("Error loading configuration", zap.Error(err))
 		}
 
-		return err
+		return SupervisorConfigError{Err: err}
+	}
+
+	if len(changes) == 0 {
+		return nil
 	}
 
 	s.createPrograms(changes)
@@ -83,7 +83,7 @@ func (s *Supervisor) Reload() error {
 	s.startGrpcServer(changes)
 	s.startAutoStartPrograms()
 
-	return err
+	return nil
 }
 
 // WaitForExit wait the supervisor to exit
@@ -237,4 +237,18 @@ func (s *Supervisor) startGrpcServer(changes memdb.Changes) {
 // GetManager get the Manager object created by superisor
 func (s *Supervisor) GetManager() *process.Manager {
 	return s.procMgr
+}
+
+// SupervisorConfigError is returned when there was a problem loading the
+// supervisor configuration file.
+type SupervisorConfigError struct {
+	Err error
+}
+
+func (sc SupervisorConfigError) Error() string {
+	return sc.Err.Error()
+}
+
+func (sc SupervisorConfigError) Unwrap() error {
+	return sc.Err
 }

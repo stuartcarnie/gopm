@@ -1,11 +1,13 @@
 package model
 
+import "github.com/stuartcarnie/gopm/pkg/env"
+
 type Root struct {
-	Environment *Environment `yaml:"environment"`
-	HttpServer  *HTTPServer  `yaml:"http_server"`
-	GrpcServer  *GrpcServer  `yaml:"grpc_server"`
-	Programs    []*Program   `yaml:"programs"`
-	Groups      []*Group     `yaml:"groups"`
+	Environment env.KeyValues `yaml:"environment"`
+	HttpServer  *HTTPServer   `yaml:"http_server"`
+	GrpcServer  *GrpcServer   `yaml:"grpc_server"`
+	Programs    []*Program    `yaml:"programs"`
+	Groups      []*Group      `yaml:"groups"`
 	FileSystem  *FileSystem
 }
 
@@ -18,8 +20,4 @@ type File struct {
 	Name    string
 	Path    string
 	Content string
-}
-
-type Environment struct {
-	Path string `yaml:"path"`
 }

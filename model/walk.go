@@ -1,6 +1,10 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/stuartcarnie/gopm/pkg/env"
+)
 
 type Node interface{}
 
@@ -15,8 +19,8 @@ func Walk(v Visitor, node Node) {
 
 	switch n := node.(type) {
 	case *Root:
-		if n.Environment != nil {
-			Walk(v, n.Environment)
+		for i := range n.Environment {
+			Walk(v, &n.Environment[i])
 		}
 
 		if n.HttpServer != nil {
@@ -44,7 +48,12 @@ func Walk(v Visitor, node Node) {
 			Walk(v, f)
 		}
 
-	case *Environment, *HTTPServer, *GrpcServer, *Program, *Group, *File:
+	case *Program:
+		for i := range n.Environment {
+			Walk(v, &n.Environment[i])
+		}
+
+	case *env.KeyValues, *env.KeyValue, *HTTPServer, *GrpcServer, *Group, *File:
 		// nothing further
 
 	default:

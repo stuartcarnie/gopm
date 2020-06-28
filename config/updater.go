@@ -58,13 +58,21 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) error {
 
 	next := strset.New()
 	for _, program := range m.Programs {
+		environment := map[string]string{}
+		for _, kv := range m.Environment {
+			environment[kv.Key] = kv.Value
+		}
+		for _, kv := range program.Environment {
+			environment[kv.Key] = kv.Value
+		}
+
 		next.Add(program.Name)
 		proc := &Process{
 			Group:                    program.Name, // TODO(sgc): Add back groups,
 			Name:                     program.Name,
 			Directory:                program.Directory,
 			Command:                  program.Command,
-			Environment:              program.Environment,
+			Environment:              environment,
 			User:                     program.User,
 			ExitCodes:                program.ExitCodes,
 			Priority:                 program.Priority,

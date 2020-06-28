@@ -664,7 +664,7 @@ func (p *Process) setEnv() {
 	}
 
 	if len(env) != 0 {
-		p.cmd.Env = append(os.Environ(), env...)
+		p.cmd.Env = append(env, os.Environ()...)
 	} else {
 		p.cmd.Env = os.Environ()
 	}

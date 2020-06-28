@@ -5,6 +5,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/stuartcarnie/gopm/model"
+	"github.com/stuartcarnie/gopm/pkg/env"
 	"go.uber.org/multierr"
 )
 
@@ -24,6 +25,9 @@ func (e *environmentExpansion) Visit(node model.Node) model.Visitor {
 
 	case *model.File:
 		n.Path = e.expand(n.Path)
+
+	case *env.KeyValue:
+		n.Value = e.expand(n.Value)
 	}
 
 	return e

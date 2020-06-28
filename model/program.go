@@ -1,12 +1,15 @@
 package model
 
-import "github.com/creasty/defaults"
+import (
+	"github.com/creasty/defaults"
+	"github.com/stuartcarnie/gopm/pkg/env"
+)
 
 type Program struct {
 	Name                     string            `yaml:"name"`
 	Directory                string            `yaml:"directory"`
 	Command                  string            `yaml:"command"`
-	Environment              map[string]string `yaml:"environment"`
+	Environment              env.KeyValues     `yaml:"environment"`
 	User                     string            `yaml:"user"`
 	ExitCodes                []int             `yaml:"exit_codes" default:"[0,2]"`
 	Priority                 int               `yaml:"priority" default:"999"`

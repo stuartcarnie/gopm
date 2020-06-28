@@ -3,10 +3,13 @@ package env
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 	"unicode"
+
+	"github.com/goccy/go-yaml"
 )
 
 type KeyValue struct {
@@ -15,6 +18,20 @@ type KeyValue struct {
 }
 
 type KeyValues []KeyValue
+
+func (kv *KeyValues) UnmarshalYAML(data []byte) error {
+	ms := yaml.MapSlice{}
+	if err := yaml.Unmarshal(data, &ms); err != nil {
+		return err
+	}
+	for _, mi := range ms {
+		*kv = append(*kv, KeyValue{
+			Key:   fmt.Sprintf("%v", mi.Key),
+			Value: fmt.Sprintf("%v", mi.Value),
+		})
+	}
+	return nil
+}
 
 func Read(r io.Reader) (KeyValues, error) {
 	reader := bufio.NewReader(r)

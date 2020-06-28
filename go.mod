@@ -3,7 +3,7 @@ module github.com/stuartcarnie/gopm
 require (
 	github.com/creasty/defaults v1.3.0
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
-	github.com/goccy/go-yaml v1.4.3
+	github.com/goccy/go-yaml v1.7.17
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.4.1 // indirect
@@ -30,7 +30,9 @@ require (
 	golang.org/x/tools v0.0.0-20200522201501-cb1345f3a375 // indirect
 	google.golang.org/genproto v0.0.0-20200521103424-e9a78aa275b7 // indirect
 	google.golang.org/grpc v1.29.1
-	gopkg.in/yaml.v2 v2.2.3 // indirect
+	google.golang.org/protobuf v1.23.0
+	gopkg.in/yaml.v2 v2.2.3
+	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2 // indirect
 )
 
 go 1.14

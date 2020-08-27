@@ -672,6 +672,14 @@ func (p *Process) setEnv() {
 
 func (p *Process) setDir() {
 	dir := p.Config().Directory
+
+	_, err := os.Stat(dir)
+	if err != nil {
+		errString := fmt.Sprintf("The directory %s does not exist", dir)
+		p.log.Error(errString)
+		return
+	}
+
 	if dir != "" {
 		p.cmd.Dir = dir
 	}

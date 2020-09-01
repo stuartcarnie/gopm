@@ -675,8 +675,7 @@ func (p *Process) setDir() {
 
 	_, err := os.Stat(dir)
 	if err != nil {
-		errString := fmt.Sprintf("The directory %s does not exist", dir)
-		p.log.Error(errString)
+		p.log.Error("Directory does not exist.", zap.String("directory", dir))
 		return
 	}
 

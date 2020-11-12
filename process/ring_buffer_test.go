@@ -16,13 +16,18 @@ func TestBacklog_MultipleWrites(t *testing.T) {
 	n, err = b.Write([]byte("more\n"))
 	require.NoError(t, err)
 	assert.Equal(t, 5, n)
-	assert.Equal(t, "more\n", string(b.Bytes()))
+	p, data := b.Bytes()
+	assert.Equal(t, p, int64(12))
+	assert.Equal(t, "more\n", string(data))
 }
 
 func TestBacklog_NewlineAtEndOfBuffer(t *testing.T) {
 	b := NewRingBuffer(10)
-	n, err := b.Write([]byte("hello world\nhello world\n"))
+	content := "hello world\nhello world\n"
+	n, err := b.Write([]byte(content))
 	require.NoError(t, err)
 	assert.Equal(t, 24, n)
-	assert.Equal(t, "", string(b.Bytes()))
+	p, data := b.Bytes()
+	assert.Equal(t, int64(len(content)), p)
+	assert.Equal(t, "", string(data))
 }

@@ -141,7 +141,7 @@ proto.gopm.rpc.GopmClient.prototype.getVersion =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.VersionResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.getVersion =
     function(request, metadata) {
@@ -221,7 +221,7 @@ proto.gopm.rpc.GopmClient.prototype.getProcessInfo =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.ProcessInfoResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.getProcessInfo =
     function(request, metadata) {
@@ -301,7 +301,7 @@ proto.gopm.rpc.GopmClient.prototype.startProcess =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.StartStopResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.startProcess =
     function(request, metadata) {
@@ -381,7 +381,7 @@ proto.gopm.rpc.GopmClient.prototype.stopProcess =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.StartStopResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.stopProcess =
     function(request, metadata) {
@@ -461,7 +461,7 @@ proto.gopm.rpc.GopmClient.prototype.startAllProcesses =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.ProcessInfoResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.startAllProcesses =
     function(request, metadata) {
@@ -541,7 +541,7 @@ proto.gopm.rpc.GopmClient.prototype.stopAllProcesses =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.ProcessInfoResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.stopAllProcesses =
     function(request, metadata) {
@@ -621,7 +621,7 @@ proto.gopm.rpc.GopmClient.prototype.shutdown =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.protobuf.Empty>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.shutdown =
     function(request, metadata) {
@@ -701,7 +701,7 @@ proto.gopm.rpc.GopmClient.prototype.reloadConfig =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.ReloadConfigResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.reloadConfig =
     function(request, metadata) {
@@ -856,7 +856,7 @@ proto.gopm.rpc.GopmClient.prototype.signalProcess =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.protobuf.Empty>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.signalProcess =
     function(request, metadata) {
@@ -936,7 +936,7 @@ proto.gopm.rpc.GopmClient.prototype.signalProcessGroup =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.ProcessInfoResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.signalProcessGroup =
     function(request, metadata) {
@@ -1016,7 +1016,7 @@ proto.gopm.rpc.GopmClient.prototype.signalAllProcesses =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.gopm.rpc.ProcessInfoResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.gopm.rpc.GopmPromiseClient.prototype.signalAllProcesses =
     function(request, metadata) {

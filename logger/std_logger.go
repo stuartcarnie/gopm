@@ -7,21 +7,29 @@ import (
 
 // StdLogger stdout/stderr logger implementation
 type StdLogger struct {
+	io.Writer
+	// Add an extra level to the NullLogger methods so
+	// that Writer.Write overwrites NullLogger.Write.
+	nullLogger
+}
+
+type nullLogger struct {
 	NullLogger
-	writer io.Writer
 }
 
-// NewStdoutLogger create a StdLogger object
+// NewStdLogger returns a logger that logs to the given writer.
+func NewStdLogger(w io.Writer) *StdLogger {
+	return &StdLogger{
+		Writer: w,
+	}
+}
+
+// NewStdoutLogger returns a logger that logs to os.Stdout.
 func NewStdoutLogger() *StdLogger {
-	return &StdLogger{writer: os.Stdout}
+	return NewStdLogger(os.Stdout)
 }
 
-// Write output the log to stdout/stderr
-func (l *StdLogger) Write(p []byte) (int, error) {
-	return l.writer.Write(p)
-}
-
-// NewStderrLogger create a stderr logger
+// NewStderrLogger returns a logger that logs to os.Stderr.
 func NewStderrLogger() *StdLogger {
-	return &StdLogger{writer: os.Stderr}
+	return NewStdLogger(os.Stderr)
 }

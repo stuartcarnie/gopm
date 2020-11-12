@@ -2,6 +2,7 @@ package gopm
 
 import (
 	"context"
+	"io"
 	"os"
 	"time"
 
@@ -156,43 +157,46 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 		backlog = proc.StderrBacklog
 	}
 
-	var (
-		ctx = stream.Context()
-		res rpc.TailLogResponse
-	)
+	ctx := stream.Context()
+	var res rpc.TailLogResponse
 	if req.BacklogLines > 0 {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			res.Lines = lastNLines(backlog.Bytes(), int(req.BacklogLines))
-			if err := stream.Send(&res); err != nil {
-				return err
-			}
+		_, data := backlog.Bytes()
+		res.Lines = lastNLines(data, int(req.BacklogLines))
+		if err := stream.Send(&res); err != nil {
+			return err
 		}
+		if req.NoFollow {
+			return nil
+		}
+		// We can miss some data here because there can be a write
+		// between the Bytes call above and adding the new logger.
+		// TODO fix it so that we can't miss data.
 	}
 
-	// Register the new logger and begin streaming the contents
-	ch := make(chan []byte, 100)
-	clog := logger.NewChanLogger(ch)
-	compositeLogger.AddLogger(clog)
+	pr, pw := io.Pipe()
+	defer pr.Close()
+	defer pw.Close()
 
-READ:
+	plog := logger.NewStdLogger(pw)
+	compositeLogger.AddLogger(plog)
+	go func() {
+		<-ctx.Done()
+		pr.Close()
+	}()
+
+	buf := make([]byte, 8192)
+outer:
 	for {
-		select {
-		case buf := <-ch:
-			res.Lines = buf
-			err := stream.Send(&res)
-			clog.PutBuffer(buf)
-			if err != nil {
-				break READ
-			}
-		case <-ctx.Done():
-			break READ
+		n, err := pr.Read(buf)
+		if err != nil {
+			break outer
+		}
+		res.Lines = buf[0:n]
+		if err := stream.Send(&res); err != nil {
+			break outer
 		}
 	}
-	compositeLogger.RemoveLogger(clog)
-	_ = clog.Close()
+	compositeLogger.RemoveLogger(plog)
 
 	return nil
 }

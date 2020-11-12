@@ -1758,7 +1758,8 @@ proto.gopm.rpc.TailLogRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     device: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    backloglines: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    backloglines: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    nofollow: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
   if (includeInstance) {
@@ -1807,6 +1808,10 @@ proto.gopm.rpc.TailLogRequest.deserializeBinaryFromReader = function(msg, reader
       var value = /** @type {number} */ (reader.readInt64());
       msg.setBackloglines(value);
       break;
+    case 4:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setNofollow(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -1854,6 +1859,13 @@ proto.gopm.rpc.TailLogRequest.serializeBinaryToWriter = function(message, writer
   if (f !== 0) {
     writer.writeInt64(
       3,
+      f
+    );
+  }
+  f = message.getNofollow();
+  if (f) {
+    writer.writeBool(
+      4,
       f
     );
   }
@@ -1911,6 +1923,24 @@ proto.gopm.rpc.TailLogRequest.prototype.getBackloglines = function() {
  */
 proto.gopm.rpc.TailLogRequest.prototype.setBackloglines = function(value) {
   return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+/**
+ * optional bool noFollow = 4;
+ * @return {boolean}
+ */
+proto.gopm.rpc.TailLogRequest.prototype.getNofollow = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 4, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.gopm.rpc.TailLogRequest} returns this
+ */
+proto.gopm.rpc.TailLogRequest.prototype.setNofollow = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 4, value);
 };
 
 

@@ -14,7 +14,7 @@ type deviceType int
 const (
 	DeviceTypeStdout deviceType = 1 << iota
 	DeviceTypeStderr
-
+	// TODO implement support for "all".
 	DeviceTypeAll = DeviceTypeStdout | DeviceTypeStderr
 )
 
@@ -53,6 +53,7 @@ func (d deviceType) Type() string {
 var tailLogOpt = struct {
 	backlogLines int
 	device       deviceType
+	noFollow     bool
 }{
 	device: DeviceTypeStdout,
 }
@@ -64,6 +65,7 @@ var tailLogCmd = cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		req := rpc.TailLogRequest{
 			Name:         args[0],
+			NoFollow:     tailLogOpt.noFollow,
 			BacklogLines: int64(tailLogOpt.backlogLines),
 		}
 
@@ -98,4 +100,5 @@ var tailLogCmd = cobra.Command{
 func init() {
 	tailLogCmd.Flags().VarP(&tailLogOpt.device, "device", "d", "Device to tail (stderr|stdout)")
 	tailLogCmd.Flags().IntVarP(&tailLogOpt.backlogLines, "lines", "n", 0, "Number of lines to show from backlog")
+	tailLogCmd.Flags().BoolVarP(&tailLogOpt.noFollow, "no-follow", "F", false, "Return immediately at end of log")
 }

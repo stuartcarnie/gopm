@@ -74,6 +74,7 @@ message TailLogRequest {
     string name = 1;
     LogDevice device = 2;
     int64 backlogLines = 3;
+    bool noFollow = 4;
 }
 
 message TailLogResponse {

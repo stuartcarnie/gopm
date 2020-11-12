@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/go-memdb"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/stuartcarnie/gopm/config"
-	"github.com/stuartcarnie/gopm/logger"
 	"github.com/stuartcarnie/gopm/process"
 	"github.com/stuartcarnie/gopm/rpc"
 	"go.uber.org/zap"
@@ -32,8 +31,7 @@ type Supervisor struct {
 	procMgr    *process.Manager // process manager
 	httpServer *http.Server
 	grpc       *grpc.Server
-	logger     logger.Logger // logger manager
-	restarting bool          // if supervisor is in restarting state
+	restarting bool // if supervisor is in restarting state
 }
 
 // NewSupervisor create a Supervisor object with supervisor configuration file

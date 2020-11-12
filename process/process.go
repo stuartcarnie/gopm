@@ -59,7 +59,10 @@ const (
 	// Unknown the unknown state
 	Unknown = 1000
 
-	backlogBytes = 10 * 1024 // 10KB
+	// TODO make this configurable, or (perhaps better) just use the
+	// log file directly rather than having a separate in-memory ring buffer
+	// implementation.
+	backlogBytes = 1024 * 1024 // 1MiB
 )
 
 var scheduler *cron.Cron = nil
@@ -331,16 +334,25 @@ func (p *Process) Pid() int {
 
 // GetState Get the process state
 func (p *Process) State() State {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	return p.state
 }
 
 // GetStartTime get the process start time
 func (p *Process) StartTime() time.Time {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	return p.startTime
 }
 
 // GetStopTime get the process stop time
 func (p *Process) StopTime() time.Time {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	switch p.state {
 	case Starting:
 		fallthrough
@@ -701,7 +713,7 @@ func (p *Process) setLog() {
 	// Attach the loggers and the backlogs to the command.
 	p.cmd.Stdout = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
 	if cfg.RedirectStderr {
-		p.cmd.Stderr = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
+		p.cmd.Stderr = p.cmd.Stdout
 	} else {
 		p.cmd.Stderr = io.MultiWriter(p.StderrLog, p.StderrBacklog)
 	}

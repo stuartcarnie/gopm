@@ -1,6 +1,7 @@
-import * as jspb from "google-protobuf"
+import * as jspb from 'google-protobuf'
 
 import * as google_protobuf_empty_pb from 'google-protobuf/google/protobuf/empty_pb';
+
 
 export class VersionResponse extends jspb.Message {
   getVersion(): string;
@@ -210,6 +211,9 @@ export class TailLogRequest extends jspb.Message {
   getBackloglines(): number;
   setBackloglines(value: number): TailLogRequest;
 
+  getNofollow(): boolean;
+  setNofollow(value: boolean): TailLogRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TailLogRequest.AsObject;
   static toObject(includeInstance: boolean, msg: TailLogRequest): TailLogRequest.AsObject;
@@ -223,6 +227,7 @@ export namespace TailLogRequest {
     name: string,
     device: LogDevice,
     backloglines: number,
+    nofollow: boolean,
   }
 }
 

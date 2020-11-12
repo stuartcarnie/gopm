@@ -7,17 +7,17 @@ import (
 
 // RingBuffer is a ring-buffer.
 type RingBuffer struct {
-	mu   sync.Mutex
-	data []byte
-	size int
-	w    int
+	mu      sync.Mutex
+	data    []byte
+	maxSize int
+	p       int64
 }
 
-// NewRingBuffer creates a new RingBuffer of a specific size in bytes.
-func NewRingBuffer(size int) *RingBuffer {
+// NewRingBuffer creates a new RingBuffer with the given
+// maximum size in bytes.
+func NewRingBuffer(maxSize int) *RingBuffer {
 	return &RingBuffer{
-		data: make([]byte, size),
-		size: size,
+		maxSize: maxSize,
 	}
 }
 
@@ -26,54 +26,72 @@ func (l *RingBuffer) Empty() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.w = 0
-	l.data = make([]byte, l.size)
+	l.p = 0
+	l.data = l.data[:0]
 }
 
 // Write writes data to the RingBuffer.
 func (l *RingBuffer) Write(b []byte) (int, error) {
-	if len(b) == 0 {
-		return 0, nil
-	}
+	nw := len(b)
 	l.mu.Lock()
 	defer l.mu.Unlock()
-
-	// If we are writing more bytes than are available in the ring-buffer, skip
-	// to the bytes that would not be overwritten by the wrapping behavior.
-	tn := len(b)
-	if tn > l.size {
-		b = b[tn-l.size:]
+	if len(l.data) < l.maxSize {
+		// The buffer hasn't yet grown to full size.
+		total := len(l.data) + len(b)
+		if total <= l.maxSize {
+			// The data fits in the buffer.
+			l.data = append(l.data, b...)
+			l.p += int64(len(b))
+			return nw, nil
+		}
+		// The data doesn't fit in the buffer, so write what we
+		// can and fall through to the wrapping code below.
+		cutoff := l.maxSize - len(l.data)
+		l.data = append(l.data, b[:cutoff]...)
+		l.p = int64(l.maxSize)
+		b = b[cutoff:]
 	}
-
-	// Copy into the buffer
-	copy(l.data[l.w:], b)
-	left := l.size - l.w
-	n := len(b)
-	if n > left {
-		copy(l.data, b[left:])
+	// Buffer overflowed; wrap around in existing buffer.
+	if len(b) > l.maxSize {
+		// We are writing more bytes than are available in the ring-buffer, so skip
+		// the bytes that would be overwritten by the wrapping behavior.
+		skipped := len(b) - l.maxSize
+		b = b[skipped:]
+		l.p += int64(skipped)
 	}
-
-	// Advance the write head
-	l.w = ((l.w + n) % l.size)
-
-	return tn, nil
+	w := int(l.p % int64(l.maxSize))
+	remain := copy(l.data[w:], b)
+	copy(l.data, b[remain:])
+	l.p += int64(len(b))
+	return nw, nil
 }
 
-// Bytes returns a byte slice containing all data written to the buffer. We trim
-// the output to the first newline character (if we can find one) in order to
-// keep the output looking nice.
-func (l *RingBuffer) Bytes() []byte {
+// Bytes returns a byte slice containing all data written to the buffer
+// and the number of bytes before it that have been discarded because of
+// the buffer's size limit.
+//
+// We trim the output to the first newline character (if we can find
+// one) in order to keep the output looking nice.
+func (l *RingBuffer) Bytes() (int64, []byte) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	out := make([]byte, l.size)
-	copy(out, l.data[l.w:])
-	copy(out[l.size-l.w:], l.data[:l.w])
-
-	// Trim the bit before the first newline
-	idx := bytes.IndexRune(out, '\n')
-	if idx > -1 {
-		return out[idx+1:]
+	if len(l.data) < l.maxSize {
+		return l.p, append([]byte(nil), l.data...)
 	}
-	return out
+	out := make([]byte, 0, l.maxSize)
+	w := int(l.p % int64(l.maxSize))
+	out = append(out, l.data[w:]...)
+	out = append(out, l.data[0:w]...)
+
+	if l.p == 0 {
+		return 0, out
+	}
+	p0 := l.p - int64(l.maxSize)
+	// The buffer has wrapped; trim the data before the
+	// first newline so we don't see a partial line.
+	if idx := bytes.IndexByte(out, '\n'); idx >= 0 {
+		return p0 + int64(idx+1), out[idx+1:]
+	}
+	return p0, out
 }

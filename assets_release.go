@@ -1,21 +1,24 @@
 // +build release
-//go:generate go run github.com/rakyll/statik -src=./webgui -p=assets_generated
 
 package gopm
 
 import (
+	"embed"
+	"io/fs"
 	"net/http"
 
-	"github.com/rakyll/statik/fs"
-	_ "github.com/stuartcarnie/gopm/assets_generated"
 	"go.uber.org/zap"
 )
 
 // HTTP auto generated
+//go:embed webgui
+var content embed.FS
+
 var HTTP http.FileSystem = func() http.FileSystem {
-	statikFS, err := fs.New()
+	dir, err := fs.Sub(content, "webgui")
 	if err != nil {
-		zap.L().Fatal("Could not load embedded assets.", zap.Error(err))
+		zap.L().Fatal("Failed to load embedded assets.", zap.Error(err))
 	}
-	return statikFS
+
+	return http.FS(dir)
 }()

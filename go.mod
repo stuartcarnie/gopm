@@ -15,7 +15,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ochinchina/filechangemonitor v0.3.1
 	github.com/r3labs/diff v1.1.1-0.20200602081335-2448fc76135e
-	github.com/rakyll/statik v0.1.7
 	github.com/ramr/go-reaper v0.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.7.0 // indirect
@@ -31,8 +30,7 @@ require (
 	google.golang.org/genproto v0.0.0-20200521103424-e9a78aa275b7 // indirect
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.23.0
-	gopkg.in/yaml.v2 v2.2.3
-	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2 // indirect
+	gopkg.in/yaml.v2 v2.2.3 // indirect
 )
 
-go 1.14
+go 1.16

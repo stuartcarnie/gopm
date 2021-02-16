@@ -16,7 +16,7 @@ var signalOpt = struct {
 }{}
 
 var signalCmd = cobra.Command{
-	Use:   "signal",
+	Use:   "signal <signal> name [name]...",
 	Short: "Send a signal to a list of processes",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

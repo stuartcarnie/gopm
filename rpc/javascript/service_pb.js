@@ -7,6 +7,8 @@
  * @public
  */
 // GENERATED CODE -- DO NOT EDIT!
+/* eslint-disable */
+// @ts-nocheck
 
 var jspb = require('google-protobuf');
 var goog = jspb;
@@ -18,6 +20,7 @@ goog.exportSymbol('proto.gopm.rpc.LogDevice', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessInfo', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessInfoResponse', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessSignal', null, global);
+goog.exportSymbol('proto.gopm.rpc.ProcessState', null, global);
 goog.exportSymbol('proto.gopm.rpc.ReloadConfigResponse', null, global);
 goog.exportSymbol('proto.gopm.rpc.SignalProcessRequest', null, global);
 goog.exportSymbol('proto.gopm.rpc.StartStopAllRequest', null, global);
@@ -633,7 +636,7 @@ proto.gopm.rpc.ProcessInfo.deserializeBinaryFromReader = function(msg, reader) {
       msg.setNow(value);
       break;
     case 7:
-      var value = /** @type {number} */ (reader.readInt64());
+      var value = /** @type {!proto.gopm.rpc.ProcessState} */ (reader.readEnum());
       msg.setState(value);
       break;
     case 8:
@@ -736,8 +739,8 @@ proto.gopm.rpc.ProcessInfo.serializeBinaryToWriter = function(message, writer) {
     );
   }
   f = message.getState();
-  if (f !== 0) {
-    writer.writeInt64(
+  if (f !== 0.0) {
+    writer.writeEnum(
       7,
       f
     );
@@ -903,20 +906,20 @@ proto.gopm.rpc.ProcessInfo.prototype.setNow = function(value) {
 
 
 /**
- * optional int64 state = 7;
- * @return {number}
+ * optional ProcessState state = 7;
+ * @return {!proto.gopm.rpc.ProcessState}
  */
 proto.gopm.rpc.ProcessInfo.prototype.getState = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 7, 0));
+  return /** @type {!proto.gopm.rpc.ProcessState} */ (jspb.Message.getFieldWithDefault(this, 7, 0));
 };
 
 
 /**
- * @param {number} value
+ * @param {!proto.gopm.rpc.ProcessState} value
  * @return {!proto.gopm.rpc.ProcessInfo} returns this
  */
 proto.gopm.rpc.ProcessInfo.prototype.setState = function(value) {
-  return jspb.Message.setProto3IntField(this, 7, value);
+  return jspb.Message.setProto3EnumField(this, 7, value);
 };
 
 
@@ -2309,7 +2312,23 @@ proto.gopm.rpc.ProcessSignal = {
   KILL: 3,
   USR1: 4,
   USR2: 5,
-  TERM: 6
+  TERM: 6,
+  STOP: 7,
+  CONT: 8
+};
+
+/**
+ * @enum {number}
+ */
+proto.gopm.rpc.ProcessState = {
+  STOPPED: 0,
+  STARTING: 10,
+  RUNNING: 20,
+  BACKOFF: 30,
+  STOPPING: 40,
+  EXITED: 100,
+  FATAL: 200,
+  UNKNOWN: 1000
 };
 
 goog.object.extend(exports, proto.gopm.rpc);

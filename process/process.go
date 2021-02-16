@@ -36,28 +36,28 @@ type State int
 
 const (
 	// Stopped the stopped state
-	Stopped State = iota
+	Stopped State = 0
 
 	// Starting the starting state
-	Starting = 10
+	Starting State = 10
 
 	// Running the running state
-	Running = 20
+	Running State = 20
 
 	// Backoff the backoff state
-	Backoff = 30
+	Backoff State = 30
 
 	// Stopping the stopping state
-	Stopping = 40
+	Stopping State = 40
 
 	// Exited the Exited state
-	Exited = 100
+	Exited State = 100
 
 	// Fatal the Fatal state
-	Fatal = 200
+	Fatal State = 200
 
 	// Unknown the unknown state
-	Unknown = 1000
+	Unknown State = 1000
 
 	// TODO make this configurable, or (perhaps better) just use the
 	// log file directly rather than having a separate in-memory ring buffer

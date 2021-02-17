@@ -56,7 +56,7 @@ var tailLogOpt = struct {
 	device       deviceType
 	noFollow     bool
 }{
-	device: DeviceTypeStdout,
+	device: DeviceTypeAll,
 }
 
 var linesPool = sync.Pool{

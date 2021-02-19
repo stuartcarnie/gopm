@@ -3,26 +3,34 @@
 package signals
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 )
 
 // ToSignal convert a signal name to signal
 func ToSignal(signalName string) (os.Signal, error) {
-	if signalName == "HUP" {
+	switch signalName {
+	case "HUP":
 		return syscall.SIGHUP, nil
-	} else if signalName == "INT" {
+	case "INT":
 		return syscall.SIGINT, nil
-	} else if signalName == "QUIT" {
+	case "QUIT":
 		return syscall.SIGQUIT, nil
-	} else if signalName == "KILL" {
+	case "KILL":
 		return syscall.SIGKILL, nil
-	} else if signalName == "USR1" {
+	case "USR1":
 		return syscall.SIGUSR1, nil
-	} else if signalName == "USR2" {
+	case "USR2":
 		return syscall.SIGUSR2, nil
-	} else {
+	case "TERM":
 		return syscall.SIGTERM, nil
+	case "STOP":
+		return syscall.SIGSTOP, nil
+	case "CONT":
+		return syscall.SIGCONT, nil
+	default:
+		return syscall.SIGTERM, fmt.Errorf("invalid signal: %s", signalName)
 	}
 }
 

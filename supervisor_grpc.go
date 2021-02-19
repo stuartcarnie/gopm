@@ -29,7 +29,7 @@ func getRpcProcessInfo(proc *process.Process) *rpc.ProcessInfo {
 		Start:         proc.StartTime().Unix(),
 		Stop:          proc.StopTime().Unix(),
 		Now:           time.Now().Unix(),
-		State:         int64(proc.State()),
+		State:         rpc.ProcessState(proc.State()),
 		StateName:     proc.State().String(),
 		SpawnErr:      "",
 		ExitStatus:    int64(proc.ExitStatus()),

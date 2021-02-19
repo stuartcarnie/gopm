@@ -5,6 +5,6 @@ debug
 *.yaml
 *.ini
 bin/
-assets_generated/
 *.env
 etc/
+root/

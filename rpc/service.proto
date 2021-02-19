@@ -35,7 +35,7 @@ message ProcessInfo {
     int64 start = 4;
     int64 stop = 5;
     int64 now = 6;
-    int64 state = 7;
+    ProcessState state = 7;
     string state_name = 8;
     string spawn_err = 9;
     int64 exit_status = 10;
@@ -66,8 +66,8 @@ message ReloadConfigResponse {
 }
 
 enum LogDevice {
-    Stdout = 0;
-    Stderr = 1;
+    STDOUT = 0;
+    STDERR = 1;
 }
 
 message TailLogRequest {
@@ -89,6 +89,19 @@ enum ProcessSignal {
     USR1 = 4;
     USR2 = 5;
     TERM = 6;
+    STOP = 7;
+    CONT = 8;
+}
+
+enum ProcessState {
+    STOPPED = 0;
+    STARTING = 10;
+    RUNNING = 20;
+    BACKOFF = 30;
+    STOPPING = 40;
+    EXITED = 100;
+    FATAL = 200;
+    UNKNOWN = 1000;
 }
 
 message SignalProcessRequest {

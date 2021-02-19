@@ -34,4 +34,3 @@ install:
 .PHONY: clean
 clean:
 	rm -rf bin/
-	rm -rf assets_generated/

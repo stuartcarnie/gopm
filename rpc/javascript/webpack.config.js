@@ -6,5 +6,6 @@ module.exports = {
         libraryTarget: "var",
         library: "gopm",
         path: __dirname
-    }
+    },
+    devtool: "source-map"
 }

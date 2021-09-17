@@ -73,6 +73,18 @@ func (s *Supervisor) StopProcess(_ context.Context, req *rpc.StartStopRequest) (
 	return &rpc.StartStopResponse{}, nil
 }
 
+func (s *Supervisor) RestartProcess(_ context.Context, req *rpc.StartStopRequest) (*rpc.StartStopResponse, error) {
+	procs := s.procMgr.FindMatchWithLabels(req.Name, req.Labels)
+	if len(procs) <= 0 {
+		return nil, status.Error(codes.NotFound, "No processes found")
+	}
+	for _, proc := range procs {
+		proc.Stop(true)
+		proc.Start(req.Wait)
+	}
+	return &rpc.StartStopResponse{}, nil
+}
+
 func (s *Supervisor) StartAllProcesses(_ context.Context, req *rpc.StartStopAllRequest) (*rpc.ProcessInfoResponse, error) {
 	var (
 		g     errgroup.Group

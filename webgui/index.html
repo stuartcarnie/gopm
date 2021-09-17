@@ -101,6 +101,31 @@
         })();
     }
 
+    function restartProcess(name) {
+        (async () => {
+            let req = new gopm.StartStopRequest();
+            req.setName(name);
+            req.setWait(true);
+
+            try {
+                await client.restartProcess(req, {});
+                updateProcessState(name, "RUNNING");
+                refreshDisplay();
+            } catch (e) {
+                showConfirmDialog({
+                    'title': "Information",
+                    'message': `Failed to restart program: ${e.message}`,
+                    'cancel-text': "Cancel",
+                    'cancel-hide': true,
+                    'confirm-text': "Ok",
+                    'confirm-onclick': function () {
+                    }
+                });
+            }
+        })();
+    }
+
+
     function reformatProcesses(processes) {
         for (const proc of processes) {
             const statename = proc['statename'];
@@ -108,13 +133,15 @@
             let color = "";
             if (statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf("starting") >= 0) {
                 action = `<button type="button" disabled class="btn btn-primary mr-1" onclick="startProcess('${proc['name']}');">Start</button>`;
-                action = action + `<button type="button" class="btn btn-primary" onclick="stopProcess('${proc['name']}');">Stop</button>`;
+                action = action + `<button type="button" class="btn btn-primary mr-1" onclick="stopProcess('${proc['name']}');">Stop</button>`;
                 color = "green";
             } else {
                 action = `<button type="button" class="btn btn-primary mr-1" onclick="startProcess('${proc['name']}');">Start</button>`;
-                action = action + `<button type="button" disabled class="btn btn-primary" onclick="stopProcess('${proc['name']}');">Stop</button>`;
+                action = action + `<button type="button" disabled class="btn btn-primary mr-1" onclick="stopProcess('${proc['name']}');">Stop</button>`;
                 color = "red";
             }
+
+            action = action + `<button type="button" class="btn btn-primary" onclick="restartProcess('${proc['name']}');">Restart</button>`;
 
             proc['action'] = action;
             proc['statename'] = `<div style="background-color:${color};">${statename}</div>`;

@@ -10,6 +10,7 @@ service Gopm {
     rpc GetProcessInfo (google.protobuf.Empty) returns (ProcessInfoResponse);
     rpc StartProcess(StartStopRequest) returns (StartStopResponse);
     rpc StopProcess(StartStopRequest) returns (StartStopResponse);
+    rpc RestartProcess(StartStopRequest) returns (StartStopResponse);
     rpc StartAllProcesses(StartStopAllRequest) returns (ProcessInfoResponse);
     rpc StopAllProcesses(StartStopAllRequest) returns (ProcessInfoResponse);
     rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);

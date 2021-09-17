@@ -117,7 +117,7 @@ var tailLogCmd = cobra.Command{
 		var sources []<-chan []byte
 
 		if tailLogOpt.device&DeviceTypeStdout == DeviceTypeStdout {
-			if src, err := tailLog(ctx, args[0], rpc.LogDevice_Stdout); err != nil {
+			if src, err := tailLog(ctx, args[0], rpc.LogDevice_STDOUT); err != nil {
 				return err
 			} else {
 				sources = append(sources, src)
@@ -125,7 +125,7 @@ var tailLogCmd = cobra.Command{
 		}
 
 		if tailLogOpt.device&DeviceTypeStderr == DeviceTypeStderr {
-			if src, err := tailLog(ctx, args[0], rpc.LogDevice_Stderr); err != nil {
+			if src, err := tailLog(ctx, args[0], rpc.LogDevice_STDERR); err != nil {
 				return err
 			} else {
 				sources = append(sources, src)

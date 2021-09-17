@@ -26,6 +26,7 @@ const (
 // Supervisor manage all the processes defined in the supervisor configuration file.
 // All the supervisor public interface is defined in this class
 type Supervisor struct {
+	rpc.UnimplementedGopmServer
 	configFile string
 	config     *config.Config   // supervisor configuration
 	procMgr    *process.Manager // process manager

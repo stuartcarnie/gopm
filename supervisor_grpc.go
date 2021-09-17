@@ -152,7 +152,7 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 
 	compositeLogger := proc.StdoutLog
 	backlog := proc.StdoutBacklog
-	if req.Device == rpc.LogDevice_Stderr {
+	if req.Device == rpc.LogDevice_STDERR {
 		compositeLogger = proc.StderrLog
 		backlog = proc.StderrBacklog
 	}

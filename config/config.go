@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -86,46 +88,28 @@ func NewConfig() *Config {
 	}
 }
 
-func (c *Config) LoadString(s string) (memdb.Changes, error) {
-	var (
-		m   *model.Root
-		err error
-	)
-
-	var r model.Reader
-	m, err = r.LoadReader(strings.NewReader(s))
+func (c *Config) loadString(s string) (memdb.Changes, error) {
+	m, err := model.ParseRoot(strings.NewReader(s))
 	if err != nil {
 		return nil, err
 	}
-
 	return c.update(m)
 }
 
 // Load loads the configuration and return the loaded programs
 func (c *Config) LoadPath(configFile string) (memdb.Changes, error) {
-	var (
-		m   *model.Root
-		err error
-	)
-
-	var r model.Reader
-	m, err = r.LoadPath(configFile)
+	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return nil, err
 	}
-
+	m, err := model.ParseRoot(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
 	return c.update(m)
 }
 
 func (c *Config) update(m *model.Root) (memdb.Changes, error) {
-	if err := model.Validate(m); err != nil {
-		return nil, err
-	}
-
-	// TODO(sgc): This should be expanded over the in-memory data
-	if err := ExpandEnv(m); err != nil {
-		return nil, err
-	}
 
 	txn := c.db.Txn(true)
 	txn.TrackChanges()

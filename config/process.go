@@ -66,7 +66,7 @@ func (p *Process) CronSchedule() cron.Schedule {
 type Processes []*Process
 
 func (p Processes) Sorted() Processes {
-	res := make(ProcessByPriority, 0, len(p))
+	res := make(processByPriority, 0, len(p))
 	for _, p := range p {
 		res = append(res, p)
 	}

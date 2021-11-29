@@ -5,17 +5,17 @@ import (
 	"strings"
 )
 
-type ProcessByPriority []*Process
+type processByPriority []*Process
 
-func (p ProcessByPriority) Len() int {
+func (p processByPriority) Len() int {
 	return len(p)
 }
 
-func (p ProcessByPriority) Swap(i, j int) {
+func (p processByPriority) Swap(i, j int) {
 	p[i], p[j] = p[j], p[i]
 }
 
-func (p ProcessByPriority) Less(i, j int) bool {
+func (p processByPriority) Less(i, j int) bool {
 	return p[i].Priority < p[j].Priority
 }
 
@@ -125,7 +125,7 @@ func (p *ProcessSorter) Sort(processes []*Process) []*Process {
 		}
 	}
 
-	sort.Sort(ProcessByPriority(p.procsWithoutDepends))
+	sort.Sort(processByPriority(p.procsWithoutDepends))
 	for _, p := range p.procsWithoutDepends {
 		result = append(result, p)
 	}

@@ -59,11 +59,11 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) error {
 	next := strset.New()
 	for _, program := range m.Programs {
 		environment := map[string]string{}
-		for _, kv := range m.Environment {
-			environment[kv.Key] = kv.Value
+		for k, v := range m.Environment {
+			environment[k] = v
 		}
-		for _, kv := range program.Environment {
-			environment[kv.Key] = kv.Value
+		for k, v := range program.Environment {
+			environment[k] = v
 		}
 
 		next.Add(program.Name)

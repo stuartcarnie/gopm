@@ -11,7 +11,6 @@ import (
 
 	"github.com/stuartcarnie/gopm"
 	"github.com/stuartcarnie/gopm/internal/zap/encoder"
-	"github.com/stuartcarnie/gopm/pkg/env"
 	"github.com/stuartcarnie/gopm/process"
 
 	"github.com/spf13/cobra"
@@ -35,31 +34,7 @@ func init() {
 	zap.ReplaceGlobals(log)
 }
 
-func loadEnvFile() error {
-	if len(rootOpt.EnvFile) <= 0 {
-		return nil
-	}
-
-	kvs, err := env.ReadFile(rootOpt.EnvFile)
-	if err != nil {
-		zap.L().Error("Failed to open environment file", zap.String("file", rootOpt.EnvFile))
-		return err
-	}
-	for i := range kvs {
-		kv := &kvs[i]
-		err = os.Setenv(kv.Key, kv.Value)
-		if err != nil {
-			zap.L().Error("Failed to set environment variable", zap.String("key", kv.Key), zap.String("value", kv.Value), zap.Error(err))
-		}
-	}
-	return nil
-}
-
 func runServer() error {
-	if err := loadEnvFile(); err != nil {
-		return err
-	}
-
 	s := gopm.NewSupervisor(rootOpt.Configuration)
 	if err := s.Reload(); err != nil {
 		// Ignore config loading errors, because the Supervisor logs those.

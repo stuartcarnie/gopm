@@ -11,7 +11,7 @@ func parse(t *testing.T, b string) *Config {
 	t.Helper()
 
 	config := NewConfig()
-	_, err := config.LoadString(b)
+	_, err := config.loadString(b)
 	require.NoError(t, err)
 	return config
 }
@@ -65,7 +65,7 @@ programs:
 
 groups:
   - name: test
-    programs: 
+    programs:
       - test1
       - test2`)
 	require.NotNil(t, config.GetProcess("test1"))

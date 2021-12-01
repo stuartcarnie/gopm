@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
-	"github.com/stuartcarnie/gopm/pkg/env"
 )
 
 type AutoStartMode int
@@ -48,9 +47,7 @@ type Process struct {
 	Labels                   map[string]string
 }
 
-var (
-	cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
-)
+var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 
 func (p *Process) CronSchedule() cron.Schedule {
 	if len(p.Cron) == 0 {
@@ -61,52 +58,6 @@ func (p *Process) CronSchedule() cron.Schedule {
 		panic(err)
 	}
 	return s
-}
-
-type Processes []*Process
-
-func (p Processes) Sorted() Processes {
-	res := make(processByPriority, 0, len(p))
-	for _, p := range p {
-		res = append(res, p)
-	}
-	return NewProcessSorter().Sort(res)
-}
-
-func (p Processes) Names() []string {
-	sorted := p.Sorted()
-	names := make([]string, len(p))
-	for i, proc := range sorted {
-		names[i] = proc.Name
-	}
-	return names
-}
-
-func (p Processes) GetNames() []string {
-	return p.Names()
-}
-
-type Group struct {
-	Name     string
-	Programs []string
-}
-
-type Environment struct {
-	Path      string
-	KeyValues env.KeyValues
-}
-
-type File struct {
-	Root    string
-	Name    string
-	Path    string
-	Content string
-}
-
-type LocalFile struct {
-	Name     string
-	FullPath string
-	Hash     []byte
 }
 
 type Server struct {

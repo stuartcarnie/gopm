@@ -1,10 +1,8 @@
-package model_test
+package config
 
 import (
 	"testing"
 	"time"
-
-	"github.com/stuartcarnie/gopm/model"
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
@@ -12,15 +10,15 @@ import (
 )
 
 func TestProgramDefaults(t *testing.T) {
-	var got model.Program
+	var got program
 	_ = defaults.Set(&got)
-	exp := model.Program{
+	exp := program{
 		ExitCodes:             []int{0, 2},
 		AutoStart:             true,
 		Priority:              999,
 		StartRetries:          3,
-		StopWaitSeconds:       model.Duration(10 * time.Second),
-		StartSeconds:          model.Duration(1 * time.Second),
+		StopWaitSeconds:       duration(10 * time.Second),
+		StartSeconds:          duration(1 * time.Second),
 		RestartFilePattern:    "*",
 		StdoutLogFile:         "/dev/null",
 		StdoutLogfileBackups:  10,
@@ -37,7 +35,7 @@ func TestProgram_UnmarshalYAML(t *testing.T) {
 name: hello world!
 stop_wait_seconds: 5s
 `
-	var p model.Program
+	var p program
 	err := yaml.Unmarshal([]byte(data), &p)
 	assert.NoError(t, err)
 }

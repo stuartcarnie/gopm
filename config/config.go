@@ -9,33 +9,19 @@ import (
 	"github.com/hashicorp/go-memdb"
 	"github.com/r3labs/diff"
 	"github.com/spf13/afero"
-	"github.com/stuartcarnie/gopm/model"
 )
 
 // Config memory representations of supervisor configuration file
 type Config struct {
 	db *memdb.MemDB
-
-	Environment  *Environment
-	ProgramGroup *ProcessGroup
 }
 
-// NewConfig create Config object
+// NewConfig returns a new Config value.
 func NewConfig() *Config {
 	schema := &memdb.DBSchema{
 		Tables: map[string]*memdb.TableSchema{
 			"process": {
 				Name: "process",
-				Indexes: map[string]*memdb.IndexSchema{
-					"id": {
-						Name:    "id",
-						Unique:  true,
-						Indexer: &memdb.StringFieldIndex{Field: "Name"},
-					},
-				},
-			},
-			"group": {
-				Name: "group",
 				Indexes: map[string]*memdb.IndexSchema{
 					"id": {
 						Name:    "id",
@@ -83,17 +69,8 @@ func NewConfig() *Config {
 	}
 
 	return &Config{
-		db:           db,
-		ProgramGroup: NewProcessGroup(),
+		db: db,
 	}
-}
-
-func (c *Config) loadString(s string) (memdb.Changes, error) {
-	m, err := model.ParseRoot(strings.NewReader(s))
-	if err != nil {
-		return nil, err
-	}
-	return c.update(m)
 }
 
 // Load loads the configuration and return the loaded programs
@@ -102,18 +79,18 @@ func (c *Config) LoadPath(configFile string) (memdb.Changes, error) {
 	if err != nil {
 		return nil, err
 	}
-	m, err := model.ParseRoot(bytes.NewReader(data))
+	m, err := parseRoot(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	return c.update(m)
 }
 
-func (c *Config) update(m *model.Root) (memdb.Changes, error) {
+func (c *Config) update(m *root) (memdb.Changes, error) {
 
 	txn := c.db.Txn(true)
 	txn.TrackChanges()
-	err := ApplyUpdates(txn, m)
+	err := applyUpdates(txn, m)
 	if err != nil {
 		txn.Abort()
 		return nil, err
@@ -124,9 +101,9 @@ func (c *Config) update(m *model.Root) (memdb.Changes, error) {
 		panic(err)
 	}
 
-	var files []*File
+	var files []*file
 	for {
-		f, ok := ri.Next().(*File)
+		f, ok := ri.Next().(*file)
 		if !ok {
 			break
 		}
@@ -135,8 +112,8 @@ func (c *Config) update(m *model.Root) (memdb.Changes, error) {
 
 	// update local files table
 	if len(files) > 0 {
-		fs := NewFileSystemWriter(afero.NewOsFs())
-		root, localFiles, err := fs.Commit(files[0].Root, files)
+		fs := newFileSystemWriter(afero.NewOsFs(), nil)
+		root, localFiles, err := fs.Commit(m.Runtime.Root, files)
 		if err != nil {
 			txn.Abort()
 			return nil, err
@@ -146,7 +123,7 @@ func (c *Config) update(m *model.Root) (memdb.Changes, error) {
 
 		for _, lf := range localFiles {
 			raw, _ := txn.First("local_file", "id", lf.Name)
-			if orig, ok := raw.(*LocalFile); ok && !diff.Changed(orig, lf) {
+			if orig, ok := raw.(*localFile); ok && !diff.Changed(orig, lf) {
 				continue
 			}
 			_ = txn.Insert("local_file", lf)
@@ -162,49 +139,10 @@ func (c *Config) update(m *model.Root) (memdb.Changes, error) {
 	return ch, nil
 }
 
-func (c *Config) Processes() Processes {
-	res := make(Processes, 0)
-	txn := c.db.Txn(false)
-	defer txn.Commit()
-
-	iter, _ := txn.Get("process", "id")
-	for {
-		p, ok := iter.Next().(*Process)
-		if !ok {
-			return res.Sorted()
-		}
-		res = append(res, p)
-	}
-}
-
-func (c *Config) ProcessNames() []string {
-	return c.Processes().Names()
-}
-
-func (c *Config) GetProcess(name string) *Process {
-	txn := c.db.Txn(false)
-	defer txn.Commit()
-	raw, err := txn.First("process", "id", name)
-	if raw == nil || err != nil {
-		return nil
-	}
-	return raw.(*Process)
-}
-
 func (c *Config) GetGrpcServer() *Server {
 	txn := c.db.Txn(false)
 	defer txn.Commit()
 	raw, err := txn.First("server", "id", "grpc")
-	if raw == nil || err != nil {
-		return nil
-	}
-	return raw.(*Server)
-}
-
-func (c *Config) GetHttpServer() *Server {
-	txn := c.db.Txn(false)
-	defer txn.Commit()
-	raw, err := txn.First("server", "id", "http")
 	if raw == nil || err != nil {
 		return nil
 	}

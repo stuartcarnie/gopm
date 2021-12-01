@@ -24,7 +24,7 @@ require (
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
-	go.uber.org/multierr v1.5.0
+	go.uber.org/multierr v1.5.0 // indirect
 	go.uber.org/zap v1.15.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/genproto v0.0.0-20210916144049-3192f974c780 // indirect
@@ -50,3 +50,5 @@ require (
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
+
+replace honnef.co/go/tools => /home/rogpeppe/gohack/honnef.co/go/tools

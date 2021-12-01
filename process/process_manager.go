@@ -64,17 +64,6 @@ func (pm *Manager) StartAutoStartPrograms() {
 	})
 }
 
-func (pm *Manager) createProcess(supervisorID string, process *config.Process) *Process {
-	// TODO(sgc): Update existing programs; e.g. cron schedule, etc
-	proc, ok := pm.procs[process.Name]
-	if !ok {
-		proc = NewProcess(supervisorID, process)
-		pm.procs[process.Name] = proc
-	}
-	zap.L().Info("Created process", zap.String("name", process.Name))
-	return proc
-}
-
 // Add add the process to this process manager
 func (pm *Manager) Add(name string, proc *Process) {
 	pm.lock.Lock()
@@ -232,8 +221,8 @@ func sortProcess(procs []*Process) []*Process {
 	}
 
 	result := make([]*Process, 0)
-	p := config.NewProcessSorter()
-	for _, program := range p.Sort(progConfigs) {
+	p := newProcessSorter()
+	for _, program := range p.sort(progConfigs) {
 		for _, proc := range procs {
 			if proc.config == program {
 				result = append(result, proc)

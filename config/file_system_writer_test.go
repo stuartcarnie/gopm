@@ -1,4 +1,4 @@
-package config_test
+package config
 
 import (
 	"io"
@@ -7,11 +7,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/mocks"
 )
 
-func TestFileSystemWriter(t *testing.T) {
+func TestfileSystemWriter(t *testing.T) {
 	t.Run("FileSystem", func(t *testing.T) {
 		t.Run("will create missing root dir", func(t *testing.T) {
 			ctl := gomock.NewController(t)
@@ -31,7 +30,7 @@ func TestFileSystemWriter(t *testing.T) {
 				MkdirAll("/etc", os.ModePerm).
 				Return(nil)
 
-			fsw := config.NewFileSystemWriter(fs)
+			fsw := newFileSystemWriter(fs, nil)
 			_, _, err := fsw.Commit("/etc", nil)
 			assert.NoError(t, err)
 		})
@@ -51,7 +50,7 @@ func TestFileSystemWriter(t *testing.T) {
 				Stat("/etc").
 				Return(rootFi, nil)
 
-			fsw := config.NewFileSystemWriter(fs)
+			fsw := newFileSystemWriter(fs, nil)
 			_, _, err := fsw.Commit("/etc", nil)
 			assert.NoError(t, err)
 		})
@@ -112,8 +111,8 @@ func TestFileSystemWriter(t *testing.T) {
 				Times(2).
 				Return([]byte("myhash"))
 
-			files := []*config.File{{Path: "caddy/Caddyfile", Content: "hello"}}
-			fsw := config.NewFileSystemWriter(fs, config.WithHasher(hash))
+			files := []*file{{Path: "caddy/Caddyfile", Content: "hello"}}
+			fsw := newFileSystemWriter(fs, hash)
 			_, _, err := fsw.Commit("/etc", files)
 			assert.NoError(t, err)
 		})
@@ -189,8 +188,8 @@ func TestFileSystemWriter(t *testing.T) {
 				OpenFile("/etc/caddy/Caddyfile", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm).
 				Return(fileF2, nil)
 
-			files := []*config.File{{Path: "caddy/Caddyfile", Content: "hello"}}
-			fsw := config.NewFileSystemWriter(fs, config.WithHasher(hash))
+			files := []*file{{Path: "caddy/Caddyfile", Content: "hello"}}
+			fsw := newFileSystemWriter(fs, hash)
 			_, lf, err := fsw.Commit("/etc", files)
 			assert.NoError(t, err)
 			assert.Len(t, lf, 1)

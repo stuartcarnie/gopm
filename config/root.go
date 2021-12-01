@@ -1,21 +1,54 @@
-package model
+package config
 
 import (
-	"github.com/creasty/defaults"
-	"github.com/stuartcarnie/gopm/pkg/env"
+	"io"
+	"time"
+
+	"github.com/goccy/go-yaml"
 )
 
-type Program struct {
+func parseRoot(reader io.Reader) (*root, error) {
+	dec := yaml.NewDecoder(reader)
+	var v root
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+type root struct {
+	Environment map[string]string `json:"environment"`
+	HttpServer  *httpServer       `json:"http_server"`
+	GrpcServer  *grpcServer       `json:"grpc_server"`
+	Programs    []*program        `json:"programs"`
+	Groups      []*group          `json:"groups"`
+	FileSystem  map[string]*file  `json:"filesystem"`
+	Runtime     runtimeConfig     `json:"runtime"`
+}
+
+type file struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+type runtimeConfig struct {
+	Environment map[string]string `json:"environment"`
+	Root        string            `json:"root"`
+	CWD         string            `json:"cwd"`
+}
+
+type program struct {
 	Name                     string            `yaml:"name"`
 	Directory                string            `yaml:"directory"`
 	Command                  string            `yaml:"command"`
-	Environment              env.KeyValues     `yaml:"environment"`
+	Environment              map[string]string `yaml:"environment"`
 	User                     string            `yaml:"user"`
 	ExitCodes                []int             `yaml:"exit_codes" default:"[0,2]"`
 	Priority                 int               `yaml:"priority" default:"999"`
-	RestartPause             Duration          `yaml:"restart_pause"`
+	RestartPause             duration          `yaml:"restart_pause"`
 	StartRetries             int               `yaml:"start_retries" default:"3"`
-	StartSeconds             Duration          `yaml:"start_seconds" default:"1000000000"`
+	StartSeconds             duration          `yaml:"start_seconds" default:"1000000000"`
 	Cron                     string            `yaml:"cron"`
 	AutoStart                bool              `yaml:"auto_start" default:"true"`
 	AutoRestart              *bool             `yaml:"auto_restart"`
@@ -23,7 +56,7 @@ type Program struct {
 	RestartFilePattern       string            `yaml:"restart_file_pattern" default:"*"`
 	RestartWhenBinaryChanged bool              `yaml:"restart_when_binary_changed"`
 	StopSignals              []string          `yaml:"stop_signals"`
-	StopWaitSeconds          Duration          `yaml:"stop_wait_seconds" default:"10000000000"`
+	StopWaitSeconds          duration          `yaml:"stop_wait_seconds" default:"10000000000"`
 	StopAsGroup              bool              `yaml:"stop_as_group"`
 	KillAsGroup              bool              `yaml:"kill_as_group"`
 	StdoutLogFile            string            `yaml:"stdout_logfile" default:"/dev/null"`
@@ -37,8 +70,34 @@ type Program struct {
 	Labels                   map[string]string `yaml:"labels"`
 }
 
-func (p *Program) UnmarshalYAML(f func(interface{}) error) error {
-	_ = defaults.Set(p)
-	type tmp Program // avoid recursive calls to UnmarshalYAML
-	return f((*tmp)(p))
+type group struct {
+	Name     string   `yaml:"name"`
+	Programs []string `yaml:"programs"`
+}
+
+type grpcServer struct {
+	Address  string `yaml:"address"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+type httpServer struct {
+	Port     string `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+type duration time.Duration
+
+func (d *duration) UnmarshalYAML(bytes []byte) error {
+	var s string
+	if err := yaml.Unmarshal(bytes, &s); err != nil {
+		return err
+	}
+	v, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = duration(v)
+	return nil
 }

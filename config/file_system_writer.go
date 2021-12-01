@@ -13,28 +13,22 @@ import (
 	"github.com/spf13/afero"
 )
 
-type FileSystemWriter struct {
+type fileSystemWriter struct {
 	RootDir string
-	Files   []*File
 	fs      afero.Afero
 	hash    hash.Hash
 }
 
-type OptionFn func(v *FileSystemWriter)
-
-func WithHasher(h hash.Hash) OptionFn {
-	return func(v *FileSystemWriter) {
-		v.hash = h
-	}
+type localFile struct {
+	Name     string
+	FullPath string
+	Hash     []byte
 }
 
-func NewFileSystemWriter(fs afero.Fs, opts ...OptionFn) *FileSystemWriter {
-	v := &FileSystemWriter{
-		fs: afero.Afero{Fs: fs},
-	}
-
-	for _, opt := range opts {
-		opt(v)
+func newFileSystemWriter(fs afero.Fs, hasher hash.Hash) *fileSystemWriter {
+	v := &fileSystemWriter{
+		fs:   afero.Afero{Fs: fs},
+		hash: hasher,
 	}
 
 	if v.hash == nil {
@@ -44,7 +38,7 @@ func NewFileSystemWriter(fs afero.Fs, opts ...OptionFn) *FileSystemWriter {
 	return v
 }
 
-func (v *FileSystemWriter) Commit(root string, files []*File) (string, []*LocalFile, error) {
+func (v *fileSystemWriter) Commit(root string, files []*file) (string, []*localFile, error) {
 	dir, err := v.checkRoot(root)
 	if err != nil {
 		return "", nil, err
@@ -56,7 +50,7 @@ func (v *FileSystemWriter) Commit(root string, files []*File) (string, []*LocalF
 
 	fs := afero.Afero{Fs: afero.NewBasePathFs(v.fs.Fs, dir)}
 
-	localFiles := make([]*LocalFile, 0, len(files))
+	localFiles := make([]*localFile, 0, len(files))
 	for _, of := range files {
 		lf, err := v.checkFile(fs, of)
 		if err != nil {
@@ -68,7 +62,7 @@ func (v *FileSystemWriter) Commit(root string, files []*File) (string, []*LocalF
 	return dir, localFiles, nil
 }
 
-func (v *FileSystemWriter) checkFile(fs afero.Afero, n *File) (*LocalFile, error) {
+func (v *fileSystemWriter) checkFile(fs afero.Afero, n *file) (*localFile, error) {
 	if filepath.IsAbs(n.Path) {
 		return nil, fmt.Errorf("file.path error: %q file must be relative path: %q", n.Name, n.Path)
 	}
@@ -100,7 +94,7 @@ func (v *FileSystemWriter) checkFile(fs afero.Afero, n *File) (*LocalFile, error
 		return nil, fmt.Errorf("RealPath error: %q: %w", n.Path, err)
 	}
 
-	lf := &LocalFile{Name: n.Name, FullPath: fullPath}
+	lf := &localFile{Name: n.Name, FullPath: fullPath}
 
 	v.hash.Reset()
 	_, _ = io.Copy(v.hash, strings.NewReader(n.Content))
@@ -115,7 +109,7 @@ func (v *FileSystemWriter) checkFile(fs afero.Afero, n *File) (*LocalFile, error
 	return lf, nil
 }
 
-func (v *FileSystemWriter) checkRoot(dir string) (string, error) {
+func (v *fileSystemWriter) checkRoot(dir string) (string, error) {
 	if !filepath.IsAbs(dir) {
 		var err error
 		dir, err = filepath.Abs(dir)

@@ -6,18 +6,17 @@ import (
 	"github.com/hashicorp/go-memdb"
 	"github.com/r3labs/diff"
 	"github.com/scylladb/go-set/strset"
-	"github.com/stuartcarnie/gopm/model"
 	"github.com/stuartcarnie/gopm/pkg/cast"
 )
 
-func ApplyUpdates(txn *memdb.Txn, m *model.Root) error {
+func applyUpdates(txn *memdb.Txn, m *root) error {
 	var u updater
 	return u.update(txn, m)
 }
 
 type updater struct{}
 
-func (u *updater) update(txn *memdb.Txn, m *model.Root) error {
+func (u *updater) update(txn *memdb.Txn, m *root) error {
 	u.applyGroup(txn, m)
 	u.applyHttpServer(txn, m)
 	u.applyGrpcServer(txn, m)
@@ -26,21 +25,21 @@ func (u *updater) update(txn *memdb.Txn, m *model.Root) error {
 	return nil
 }
 
-func (u *updater) applyGroup(txn *memdb.Txn, m *model.Root) {
+func (u *updater) applyGroup(txn *memdb.Txn, m *root) {
 	for _, g := range m.Groups {
-		obj := &Group{
+		obj := &group{
 			Name:     g.Name,
 			Programs: g.Programs,
 		}
 		raw, _ := txn.First("group", "id", g.Name)
-		if orig, ok := raw.(*Group); ok && !diff.Changed(orig, obj) {
+		if orig, ok := raw.(*group); ok && !diff.Changed(orig, obj) {
 			continue
 		}
 		_ = txn.Insert("group", obj)
 	}
 }
 
-func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) error {
+func (u *updater) applyPrograms(txn *memdb.Txn, m *root) error {
 	iter, err := txn.Get("process", "id")
 	if err != nil {
 		return err
@@ -126,7 +125,7 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *model.Root) error {
 	return nil
 }
 
-func (u *updater) applyHttpServer(txn *memdb.Txn, m *model.Root) {
+func (u *updater) applyHttpServer(txn *memdb.Txn, m *root) {
 	if m.HttpServer == nil {
 		_ = txn.Delete("server", &Server{Name: "http"})
 		return
@@ -146,7 +145,7 @@ func (u *updater) applyHttpServer(txn *memdb.Txn, m *model.Root) {
 	_ = txn.Insert("server", server)
 }
 
-func (u *updater) applyGrpcServer(txn *memdb.Txn, m *model.Root) {
+func (u *updater) applyGrpcServer(txn *memdb.Txn, m *root) {
 	if m.GrpcServer == nil {
 		_ = txn.Delete("server", &Server{Name: "grpc"})
 		return
@@ -166,25 +165,19 @@ func (u *updater) applyGrpcServer(txn *memdb.Txn, m *model.Root) {
 	_ = txn.Insert("server", server)
 }
 
-func (u *updater) applyFileSystem(txn *memdb.Txn, m *model.Root) {
+func (u *updater) applyFileSystem(txn *memdb.Txn, m *root) {
 	if m.FileSystem == nil {
 		_, _ = txn.DeleteAll("file", "id", "")
 		return
 	}
 
-	root := m.FileSystem.Root
-	for _, mf := range m.FileSystem.Files {
-		f := &File{
-			Root:    root,
-			Name:    mf.Name,
-			Path:    mf.Path,
-			Content: mf.Content,
-		}
+	for _, f := range m.FileSystem {
+		f := f
 
-		raw, _ := txn.First("file", "id", mf.Name)
-		if orig, ok := raw.(*File); ok && !diff.Changed(orig, f) {
+		raw, _ := txn.First("file", "id", f.Name)
+		if orig, ok := raw.(*file); ok && !diff.Changed(orig, f) {
 			return
 		}
-		_ = txn.Insert("file", f)
+		_ = txn.Insert("file", &f)
 	}
 }

@@ -1,4 +1,4 @@
-package config_test
+package process
 
 import (
 	"testing"
@@ -76,7 +76,7 @@ func TestProcessSorter_Sort(t *testing.T) {
 
 	processes = append(processes, program)
 
-	result := config.NewProcessSorter().Sort(processes)
+	result := newProcessSorter().sort(processes)
 	assert.True(t, isProcessBefore(t, result, "prog-5", "prog-3"))
 	assert.True(t, isProcessBefore(t, result, "prog-3", "prog-1"))
 	assert.True(t, isProcessBefore(t, result, "prog-1", "prog-2"))

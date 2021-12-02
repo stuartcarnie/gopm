@@ -6,7 +6,6 @@ import (
 	"github.com/hashicorp/go-memdb"
 	"github.com/r3labs/diff"
 	"github.com/scylladb/go-set/strset"
-	"github.com/stuartcarnie/gopm/pkg/cast"
 )
 
 func applyUpdates(txn *memdb.Txn, m *root) error {
@@ -118,8 +117,12 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *root) error {
 	}
 
 	deleted := strset.Difference(prev, next)
-	if deleted.Size() > 0 {
-		_, _ = txn.DeleteAll("process", "id", cast.ToSlice(deleted.List())...)
+	if n := deleted.Size(); n > 0 {
+		argSlice := make([]interface{}, n)
+		for i, e := range deleted.List() {
+			argSlice[i] = e
+		}
+		_, _ = txn.DeleteAll("process", "id", argSlice...)
 	}
 
 	return nil

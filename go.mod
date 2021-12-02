@@ -21,7 +21,6 @@ require (
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/scylladb/go-set v1.0.3-0.20200225121959-cc7b2070d91e
 	github.com/spf13/afero v1.1.2
-	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
 	go.uber.org/multierr v1.5.0 // indirect

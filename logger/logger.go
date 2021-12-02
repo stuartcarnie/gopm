@@ -2,19 +2,18 @@ package logger
 
 import (
 	"io"
+	"os"
 	"strings"
 )
 
 // Logger the log interface to log program stdout/stderr logs to file
 type Logger interface {
 	io.WriteCloser
-	ReadLog(offset, length int64) (string, error)
-	ReadTailLog(offset, length int64) (string, int64, bool, error)
-	ClearCurLogFile() error
-	ClearAllLogFile() error
 }
 
-// NewLogger create a logger for a program with parameters
+// NewLogger returns a logger for a program with the given name,
+// writing logs to any log files specified in logFile (each file is comma-separated),
+// storing up to maxBytes in each file.
 func NewLogger(programName, logFile string, maxBytes int64, backups int) Logger {
 	files := splitLogFile(logFile)
 	loggers := make([]Logger, 0)
@@ -35,15 +34,15 @@ func splitLogFile(logFile string) []string {
 func createLogger(programName, logFile string, maxBytes int64, backups int) Logger {
 	switch logFile {
 	case "/dev/stdout":
-		return NewStdoutLogger()
+		return NewStdLogger(os.Stdout)
 	case "/dev/stderr":
-		return NewStderrLogger()
+		return NewStdLogger(os.Stderr)
 	case "/dev/null":
-		return NewNullLogger()
+		return nullLogger{}
 	default:
 		if len(logFile) > 0 {
-			return NewFileLogger(logFile, maxBytes, backups)
+			return newFileLogger(logFile, maxBytes, backups)
 		}
-		return NewNullLogger()
+		return nullLogger{}
 	}
 }

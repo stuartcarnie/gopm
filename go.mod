@@ -6,7 +6,6 @@ require (
 	github.com/creasty/defaults v1.3.0
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/goccy/go-yaml v1.7.17
-	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-memdb v1.2.1
@@ -20,8 +19,6 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/scylladb/go-set v1.0.3-0.20200225121959-cc7b2070d91e
-	github.com/spf13/afero v1.1.2
-	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
 	go.uber.org/multierr v1.5.0 // indirect

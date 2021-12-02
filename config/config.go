@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/go-memdb"
 	"github.com/r3labs/diff"
-	"github.com/spf13/afero"
 )
 
 // Config memory representations of supervisor configuration file
@@ -112,8 +111,8 @@ func (c *Config) update(m *root) (memdb.Changes, error) {
 
 	// update local files table
 	if len(files) > 0 {
-		fs := newFileSystemWriter(afero.NewOsFs(), nil)
-		root, localFiles, err := fs.Commit(m.Runtime.Root, files)
+		root := m.Runtime.Root
+		localFiles, err := writeFiles(root, files)
 		if err != nil {
 			txn.Abort()
 			return nil, err
@@ -122,14 +121,14 @@ func (c *Config) update(m *root) (memdb.Changes, error) {
 		_ = os.Setenv("GOPM_FS_ROOT", root)
 
 		for _, lf := range localFiles {
-			raw, _ := txn.First("local_file", "id", lf.Name)
+			raw, _ := txn.First("local_file", "id", lf.name)
 			if orig, ok := raw.(*localFile); ok && !diff.Changed(orig, lf) {
 				continue
 			}
 			_ = txn.Insert("local_file", lf)
 			// TODO(sgc): Want to merge these with each process environment
-			key := strings.ToUpper("GOPM_FS_" + lf.Name)
-			_ = os.Setenv(key, lf.FullPath)
+			key := strings.ToUpper("GOPM_FS_" + lf.name)
+			_ = os.Setenv(key, lf.fullPath)
 		}
 	}
 

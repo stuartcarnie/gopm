@@ -8,7 +8,11 @@ type CompositeLogger struct {
 	loggers []Logger
 }
 
-// NewCompositeLogger create a new CompositeLogger object
+// NewCompositeLogger returns a Logger implementation that logs to
+// all the given loggers, and also allows loggers to be dynamically added
+// and removed. Logger implementations must be comparable.
+//
+// The first logger is special: Write and Close errors from all but the first logger are ignored.
 func NewCompositeLogger(loggers ...Logger) *CompositeLogger {
 	return &CompositeLogger{loggers: loggers}
 }
@@ -20,7 +24,7 @@ func (cl *CompositeLogger) AddLogger(logger Logger) {
 	cl.loggers = append(cl.loggers, logger)
 }
 
-// RemoveLogger remove the previous added logger
+// RemoveLogger removes the given logger from the loggers in cl.
 func (cl *CompositeLogger) RemoveLogger(logger Logger) {
 	cl.mu.Lock()
 	defer cl.mu.Unlock()
@@ -32,7 +36,7 @@ func (cl *CompositeLogger) RemoveLogger(logger Logger) {
 	}
 }
 
-// Write dispatch the log data to loggers added by AddLogger() call
+// Write implements Logger.Write by writing to all the loggers in cl.
 func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
 	cl.mu.Lock()
 	defer cl.mu.Unlock()
@@ -47,7 +51,7 @@ func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
 	return
 }
 
-// Close close all the loggers added by AddLogger() call
+// Close closes all the loggers in CL.
 func (cl *CompositeLogger) Close() (err error) {
 	cl.mu.Lock()
 	defer cl.mu.Unlock()
@@ -60,24 +64,4 @@ func (cl *CompositeLogger) Close() (err error) {
 		}
 	}
 	return
-}
-
-// ReadLog read log data from first logger
-func (cl *CompositeLogger) ReadLog(offset, length int64) (string, error) {
-	return cl.loggers[0].ReadLog(offset, length)
-}
-
-// ReadTailLog tail the log data from first logger
-func (cl *CompositeLogger) ReadTailLog(offset, length int64) (string, int64, bool, error) {
-	return cl.loggers[0].ReadTailLog(offset, length)
-}
-
-// ClearCurLogFile clear the first logger file
-func (cl *CompositeLogger) ClearCurLogFile() error {
-	return cl.loggers[0].ClearCurLogFile()
-}
-
-// ClearAllLogFile clear all the files of first logger
-func (cl *CompositeLogger) ClearAllLogFile() error {
-	return cl.loggers[0].ClearAllLogFile()
 }

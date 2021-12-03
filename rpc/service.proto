@@ -6,7 +6,6 @@ option go_package = ".;rpc";
 import "google/protobuf/empty.proto";
 
 service Gopm {
-    rpc GetVersion (google.protobuf.Empty) returns (VersionResponse);
     rpc GetProcessInfo (google.protobuf.Empty) returns (ProcessInfoResponse);
     rpc StartProcess(StartStopRequest) returns (StartStopResponse);
     rpc StopProcess(StartStopRequest) returns (StartStopResponse);

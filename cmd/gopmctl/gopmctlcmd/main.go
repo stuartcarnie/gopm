@@ -71,11 +71,14 @@ func (ctl *Control) getServerURL() string {
 	if ctl.Address != "" {
 		return ctl.Address
 	} else if _, err := os.Stat(ctl.Configuration); err == nil {
-		cfg := config.NewConfig()
-		_, _ = cfg.LoadPath(ctl.Configuration)
-		svr := cfg.GetGrpcServer()
-		if svr != nil && svr.Address != "" {
-			return svr.Address
+		cfg, err := config.Load(ctl.Configuration)
+		if err == nil {
+			// TODO return error from getServerURL
+			svr := cfg.GRPCServer
+			if svr != nil && svr.Address != "" {
+				// TODO network too
+				return svr.Address
+			}
 		}
 	}
 	return "localhost:9002"

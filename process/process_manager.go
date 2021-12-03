@@ -21,7 +21,7 @@ func NewManager() *Manager {
 }
 
 // CreateOrUpdateProcess creates a new process and adds it to the manager or updates an existing process.
-func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Process) *Process {
+func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Program) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
@@ -163,7 +163,7 @@ func (pm *Manager) StopAllProcesses() {
 }
 
 func sortProcess(procs []*Process) []*Process {
-	progConfigs := make([]*config.Process, 0)
+	progConfigs := make([]*config.Program, 0)
 	for _, proc := range procs {
 		progConfigs = append(progConfigs, proc.config)
 	}

@@ -17,10 +17,6 @@ import (
 
 var _ rpc.GopmServer = (*Supervisor)(nil)
 
-func (s *Supervisor) GetVersion(_ context.Context, _ *empty.Empty) (*rpc.VersionResponse, error) {
-	return &rpc.VersionResponse{Version: Version}, nil
-}
-
 func getRpcProcessInfo(proc *process.Process) *rpc.ProcessInfo {
 	return &rpc.ProcessInfo{
 		Name:          proc.Name(),

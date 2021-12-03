@@ -19,7 +19,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GopmClient interface {
-	GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*VersionResponse, error)
 	GetProcessInfo(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
 	StartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
 	StopProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
@@ -39,15 +38,6 @@ type gopmClient struct {
 
 func NewGopmClient(cc grpc.ClientConnInterface) GopmClient {
 	return &gopmClient{cc}
-}
-
-func (c *gopmClient) GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*VersionResponse, error) {
-	out := new(VersionResponse)
-	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/GetVersion", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *gopmClient) GetProcessInfo(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ProcessInfoResponse, error) {
@@ -176,7 +166,6 @@ func (c *gopmClient) SignalAllProcesses(ctx context.Context, in *SignalProcessRe
 // All implementations must embed UnimplementedGopmServer
 // for forward compatibility
 type GopmServer interface {
-	GetVersion(context.Context, *empty.Empty) (*VersionResponse, error)
 	GetProcessInfo(context.Context, *empty.Empty) (*ProcessInfoResponse, error)
 	StartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
 	StopProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
@@ -195,9 +184,6 @@ type GopmServer interface {
 type UnimplementedGopmServer struct {
 }
 
-func (UnimplementedGopmServer) GetVersion(context.Context, *empty.Empty) (*VersionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
-}
 func (UnimplementedGopmServer) GetProcessInfo(context.Context, *empty.Empty) (*ProcessInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProcessInfo not implemented")
 }
@@ -242,24 +228,6 @@ type UnsafeGopmServer interface {
 
 func RegisterGopmServer(s grpc.ServiceRegistrar, srv GopmServer) {
 	s.RegisterService(&Gopm_ServiceDesc, srv)
-}
-
-func _Gopm_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(empty.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GopmServer).GetVersion(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gopm.rpc.Gopm/GetVersion",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).GetVersion(ctx, req.(*empty.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Gopm_GetProcessInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -470,10 +438,6 @@ var Gopm_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gopm.rpc.Gopm",
 	HandlerType: (*GopmServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetVersion",
-			Handler:    _Gopm_GetVersion_Handler,
-		},
 		{
 			MethodName: "GetProcessInfo",
 			Handler:    _Gopm_GetProcessInfo_Handler,

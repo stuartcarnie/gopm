@@ -9,13 +9,6 @@ export class GopmClient {
                credentials?: null | { [index: string]: string; },
                options?: null | { [index: string]: any; });
 
-  getVersion(
-    request: google_protobuf_empty_pb.Empty,
-    metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: service_pb.VersionResponse) => void
-  ): grpcWeb.ClientReadableStream<service_pb.VersionResponse>;
-
   getProcessInfo(
     request: google_protobuf_empty_pb.Empty,
     metadata: grpcWeb.Metadata | undefined,
@@ -97,11 +90,6 @@ export class GopmPromiseClient {
   constructor (hostname: string,
                credentials?: null | { [index: string]: string; },
                options?: null | { [index: string]: any; });
-
-  getVersion(
-    request: google_protobuf_empty_pb.Empty,
-    metadata?: grpcWeb.Metadata
-  ): Promise<service_pb.VersionResponse>;
 
   getProcessInfo(
     request: google_protobuf_empty_pb.Empty,

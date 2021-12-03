@@ -7,7 +7,7 @@ import (
 	"github.com/stuartcarnie/gopm/config"
 )
 
-type processByPriority []*config.Process
+type processByPriority []*config.Program
 
 func (p processByPriority) Len() int {
 	return len(p)
@@ -24,18 +24,18 @@ func (p processByPriority) Less(i, j int) bool {
 // ProcessSorter sort the program by its priority
 type processSorter struct {
 	dependsOnGraph      map[string][]string
-	procsWithoutDepends []*config.Process
+	procsWithoutDepends []*config.Program
 }
 
 // newProcessSorter returns a new process sorter.
 func newProcessSorter() *processSorter {
 	return &processSorter{
 		dependsOnGraph:      make(map[string][]string),
-		procsWithoutDepends: make([]*config.Process, 0),
+		procsWithoutDepends: make([]*config.Program, 0),
 	}
 }
 
-func (p *processSorter) initDepends(processes []*config.Process) {
+func (p *processSorter) initDepends(processes []*config.Program) {
 	// sort by dependsOn
 	for _, proc := range processes {
 		if len(proc.DependsOn) > 0 {
@@ -55,7 +55,7 @@ func (p *processSorter) initDepends(processes []*config.Process) {
 	}
 }
 
-func (p *processSorter) initProcessWithoutDepends(processes []*config.Process) {
+func (p *processSorter) initProcessWithoutDepends(processes []*config.Program) {
 	dependsOnProcesses := p.getDependsOnInfo()
 	for _, config := range processes {
 		if _, ok := dependsOnProcesses[config.Name]; !ok {
@@ -114,10 +114,10 @@ func (p *processSorter) inFinishedProcess(processName string, finishedPrograms m
 }
 
 // sort sorts processes by dependency and returns the resulting slice.
-func (p *processSorter) sort(processes []*config.Process) []*config.Process {
+func (p *processSorter) sort(processes []*config.Program) []*config.Program {
 	p.initDepends(processes)
 	p.initProcessWithoutDepends(processes)
-	result := make([]*config.Process, 0)
+	result := make([]*config.Program, 0)
 
 	for _, proc := range p.sortDepends() {
 		for _, config := range processes {

@@ -214,7 +214,11 @@ func (s *Supervisor) startGrpcServer(changes memdb.Changes) {
 			return
 		}
 
-		ln, err := net.Listen("tcp", cfg.Address)
+		netw := cfg.Network
+		if netw == "" {
+			netw = "tcp"
+		}
+		ln, err := net.Listen(netw, cfg.Address)
 		if err != nil {
 			zap.L().Error("Unable to start gRPC", zap.Error(err), zap.String("addr", cfg.Address))
 			return
@@ -225,7 +229,7 @@ func (s *Supervisor) startGrpcServer(changes memdb.Changes) {
 		reflection.Register(grpcServer)
 		s.grpc = grpcServer
 
-		zap.L().Info("Starting gRPC server", zap.String("addr", cfg.Address))
+		zap.L().Info("Starting gRPC server", zap.Stringer("addr", ln.Addr()))
 		err = grpcServer.Serve(ln)
 		if err != nil && err != io.EOF {
 			zap.L().Error("Unable to start gRPC server", zap.Error(err))

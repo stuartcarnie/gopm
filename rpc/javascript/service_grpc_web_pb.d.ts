@@ -84,13 +84,6 @@ export class GopmClient {
                response: google_protobuf_empty_pb.Empty) => void
   ): grpcWeb.ClientReadableStream<google_protobuf_empty_pb.Empty>;
 
-  signalProcessGroup(
-    request: service_pb.SignalProcessRequest,
-    metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: service_pb.ProcessInfoResponse) => void
-  ): grpcWeb.ClientReadableStream<service_pb.ProcessInfoResponse>;
-
   signalAllProcesses(
     request: service_pb.SignalProcessRequest,
     metadata: grpcWeb.Metadata | undefined,
@@ -159,11 +152,6 @@ export class GopmPromiseClient {
     request: service_pb.SignalProcessRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<google_protobuf_empty_pb.Empty>;
-
-  signalProcessGroup(
-    request: service_pb.SignalProcessRequest,
-    metadata?: grpcWeb.Metadata
-  ): Promise<service_pb.ProcessInfoResponse>;
 
   signalAllProcesses(
     request: service_pb.SignalProcessRequest,

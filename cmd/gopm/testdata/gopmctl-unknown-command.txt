@@ -1,0 +1,7 @@
+! gopmctl foobar
+cmp stderr expect-stderr
+
+-- expect-stderr --
+Error: unknown command "foobar" for "gopmctl"
+Run 'gopmctl --help' for usage.
+unknown command "foobar" for "gopmctl"

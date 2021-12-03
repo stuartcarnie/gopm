@@ -16,26 +16,11 @@ func applyUpdates(txn *memdb.Txn, m *root) error {
 type updater struct{}
 
 func (u *updater) update(txn *memdb.Txn, m *root) error {
-	u.applyGroup(txn, m)
 	u.applyHttpServer(txn, m)
 	u.applyGrpcServer(txn, m)
 	u.applyFileSystem(txn, m)
 	u.applyPrograms(txn, m)
 	return nil
-}
-
-func (u *updater) applyGroup(txn *memdb.Txn, m *root) {
-	for _, g := range m.Groups {
-		obj := &group{
-			Name:     g.Name,
-			Programs: g.Programs,
-		}
-		raw, _ := txn.First("group", "id", g.Name)
-		if orig, ok := raw.(*group); ok && !diff.Changed(orig, obj) {
-			continue
-		}
-		_ = txn.Insert("group", obj)
-	}
 }
 
 func (u *updater) applyPrograms(txn *memdb.Txn, m *root) error {
@@ -66,7 +51,6 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *root) error {
 
 		next.Add(program.Name)
 		proc := &Process{
-			Group:                    program.Name, // TODO(sgc): Add back groups,
 			Name:                     program.Name,
 			Directory:                program.Directory,
 			Command:                  program.Command,

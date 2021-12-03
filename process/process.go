@@ -280,11 +280,6 @@ func (p *Process) Name() string {
 	return p.Config().Name
 }
 
-// Group which group the program belongs to
-func (p *Process) Group() string {
-	return p.Config().Group
-}
-
 // Description get the process status description
 func (p *Process) Description() string {
 	p.mu.RLock()

@@ -15,7 +15,6 @@ const (
 )
 
 type Process struct {
-	Group                    string
 	Name                     string
 	Directory                string
 	Command                  string
@@ -62,6 +61,7 @@ func (p *Process) CronSchedule() cron.Schedule {
 
 type Server struct {
 	Name     string
+	Network  string
 	Address  string
 	Username string
 	Password string

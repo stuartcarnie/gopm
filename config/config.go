@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/hashicorp/go-memdb"
-	"github.com/r3labs/diff"
 )
 
 // Config memory representations of supervisor configuration file
@@ -122,7 +122,7 @@ func (c *Config) update(m *root) (memdb.Changes, error) {
 
 		for _, lf := range localFiles {
 			raw, _ := txn.First("local_file", "id", lf.name)
-			if orig, ok := raw.(*localFile); ok && !diff.Changed(orig, lf) {
+			if orig, ok := raw.(*localFile); ok && reflect.DeepEqual(lf, orig) {
 				continue
 			}
 			_ = txn.Insert("local_file", lf)

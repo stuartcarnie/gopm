@@ -4,10 +4,10 @@ package rpc
 
 import (
 	context "context"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,18 +19,17 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GopmClient interface {
-	GetVersion(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*VersionResponse, error)
-	GetProcessInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
+	GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*VersionResponse, error)
+	GetProcessInfo(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
 	StartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
 	StopProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
 	RestartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
 	StartAllProcesses(ctx context.Context, in *StartStopAllRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
 	StopAllProcesses(ctx context.Context, in *StartStopAllRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
-	Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ReloadConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ReloadConfigResponse, error)
+	Shutdown(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	ReloadConfig(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ReloadConfigResponse, error)
 	TailLog(ctx context.Context, in *TailLogRequest, opts ...grpc.CallOption) (Gopm_TailLogClient, error)
-	SignalProcess(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	SignalProcessGroup(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
+	SignalProcess(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SignalAllProcesses(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
 }
 
@@ -42,7 +41,7 @@ func NewGopmClient(cc grpc.ClientConnInterface) GopmClient {
 	return &gopmClient{cc}
 }
 
-func (c *gopmClient) GetVersion(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*VersionResponse, error) {
+func (c *gopmClient) GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*VersionResponse, error) {
 	out := new(VersionResponse)
 	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/GetVersion", in, out, opts...)
 	if err != nil {
@@ -51,7 +50,7 @@ func (c *gopmClient) GetVersion(ctx context.Context, in *emptypb.Empty, opts ...
 	return out, nil
 }
 
-func (c *gopmClient) GetProcessInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ProcessInfoResponse, error) {
+func (c *gopmClient) GetProcessInfo(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ProcessInfoResponse, error) {
 	out := new(ProcessInfoResponse)
 	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/GetProcessInfo", in, out, opts...)
 	if err != nil {
@@ -105,8 +104,8 @@ func (c *gopmClient) StopAllProcesses(ctx context.Context, in *StartStopAllReque
 	return out, nil
 }
 
-func (c *gopmClient) Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *gopmClient) Shutdown(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/Shutdown", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -114,7 +113,7 @@ func (c *gopmClient) Shutdown(ctx context.Context, in *emptypb.Empty, opts ...gr
 	return out, nil
 }
 
-func (c *gopmClient) ReloadConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ReloadConfigResponse, error) {
+func (c *gopmClient) ReloadConfig(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ReloadConfigResponse, error) {
 	out := new(ReloadConfigResponse)
 	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/ReloadConfig", in, out, opts...)
 	if err != nil {
@@ -155,18 +154,9 @@ func (x *gopmTailLogClient) Recv() (*TailLogResponse, error) {
 	return m, nil
 }
 
-func (c *gopmClient) SignalProcess(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *gopmClient) SignalProcess(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/SignalProcess", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gopmClient) SignalProcessGroup(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error) {
-	out := new(ProcessInfoResponse)
-	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/SignalProcessGroup", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -186,18 +176,17 @@ func (c *gopmClient) SignalAllProcesses(ctx context.Context, in *SignalProcessRe
 // All implementations must embed UnimplementedGopmServer
 // for forward compatibility
 type GopmServer interface {
-	GetVersion(context.Context, *emptypb.Empty) (*VersionResponse, error)
-	GetProcessInfo(context.Context, *emptypb.Empty) (*ProcessInfoResponse, error)
+	GetVersion(context.Context, *empty.Empty) (*VersionResponse, error)
+	GetProcessInfo(context.Context, *empty.Empty) (*ProcessInfoResponse, error)
 	StartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
 	StopProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
 	RestartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
 	StartAllProcesses(context.Context, *StartStopAllRequest) (*ProcessInfoResponse, error)
 	StopAllProcesses(context.Context, *StartStopAllRequest) (*ProcessInfoResponse, error)
-	Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	ReloadConfig(context.Context, *emptypb.Empty) (*ReloadConfigResponse, error)
+	Shutdown(context.Context, *empty.Empty) (*empty.Empty, error)
+	ReloadConfig(context.Context, *empty.Empty) (*ReloadConfigResponse, error)
 	TailLog(*TailLogRequest, Gopm_TailLogServer) error
-	SignalProcess(context.Context, *SignalProcessRequest) (*emptypb.Empty, error)
-	SignalProcessGroup(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error)
+	SignalProcess(context.Context, *SignalProcessRequest) (*empty.Empty, error)
 	SignalAllProcesses(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error)
 	mustEmbedUnimplementedGopmServer()
 }
@@ -206,10 +195,10 @@ type GopmServer interface {
 type UnimplementedGopmServer struct {
 }
 
-func (UnimplementedGopmServer) GetVersion(context.Context, *emptypb.Empty) (*VersionResponse, error) {
+func (UnimplementedGopmServer) GetVersion(context.Context, *empty.Empty) (*VersionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
 }
-func (UnimplementedGopmServer) GetProcessInfo(context.Context, *emptypb.Empty) (*ProcessInfoResponse, error) {
+func (UnimplementedGopmServer) GetProcessInfo(context.Context, *empty.Empty) (*ProcessInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProcessInfo not implemented")
 }
 func (UnimplementedGopmServer) StartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error) {
@@ -227,20 +216,17 @@ func (UnimplementedGopmServer) StartAllProcesses(context.Context, *StartStopAllR
 func (UnimplementedGopmServer) StopAllProcesses(context.Context, *StartStopAllRequest) (*ProcessInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopAllProcesses not implemented")
 }
-func (UnimplementedGopmServer) Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedGopmServer) Shutdown(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
 }
-func (UnimplementedGopmServer) ReloadConfig(context.Context, *emptypb.Empty) (*ReloadConfigResponse, error) {
+func (UnimplementedGopmServer) ReloadConfig(context.Context, *empty.Empty) (*ReloadConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReloadConfig not implemented")
 }
 func (UnimplementedGopmServer) TailLog(*TailLogRequest, Gopm_TailLogServer) error {
 	return status.Errorf(codes.Unimplemented, "method TailLog not implemented")
 }
-func (UnimplementedGopmServer) SignalProcess(context.Context, *SignalProcessRequest) (*emptypb.Empty, error) {
+func (UnimplementedGopmServer) SignalProcess(context.Context, *SignalProcessRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SignalProcess not implemented")
-}
-func (UnimplementedGopmServer) SignalProcessGroup(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SignalProcessGroup not implemented")
 }
 func (UnimplementedGopmServer) SignalAllProcesses(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SignalAllProcesses not implemented")
@@ -259,7 +245,7 @@ func RegisterGopmServer(s grpc.ServiceRegistrar, srv GopmServer) {
 }
 
 func _Gopm_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -271,13 +257,13 @@ func _Gopm_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: "/gopm.rpc.Gopm/GetVersion",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).GetVersion(ctx, req.(*emptypb.Empty))
+		return srv.(GopmServer).GetVersion(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Gopm_GetProcessInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -289,7 +275,7 @@ func _Gopm_GetProcessInfo_Handler(srv interface{}, ctx context.Context, dec func
 		FullMethod: "/gopm.rpc.Gopm/GetProcessInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).GetProcessInfo(ctx, req.(*emptypb.Empty))
+		return srv.(GopmServer).GetProcessInfo(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -385,7 +371,7 @@ func _Gopm_StopAllProcesses_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _Gopm_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -397,13 +383,13 @@ func _Gopm_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: "/gopm.rpc.Gopm/Shutdown",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).Shutdown(ctx, req.(*emptypb.Empty))
+		return srv.(GopmServer).Shutdown(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Gopm_ReloadConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -415,7 +401,7 @@ func _Gopm_ReloadConfig_Handler(srv interface{}, ctx context.Context, dec func(i
 		FullMethod: "/gopm.rpc.Gopm/ReloadConfig",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).ReloadConfig(ctx, req.(*emptypb.Empty))
+		return srv.(GopmServer).ReloadConfig(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -455,24 +441,6 @@ func _Gopm_SignalProcess_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GopmServer).SignalProcess(ctx, req.(*SignalProcessRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Gopm_SignalProcessGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SignalProcessRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GopmServer).SignalProcessGroup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gopm.rpc.Gopm/SignalProcessGroup",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).SignalProcessGroup(ctx, req.(*SignalProcessRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -541,10 +509,6 @@ var Gopm_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SignalProcess",
 			Handler:    _Gopm_SignalProcess_Handler,
-		},
-		{
-			MethodName: "SignalProcessGroup",
-			Handler:    _Gopm_SignalProcessGroup_Handler,
 		},
 		{
 			MethodName: "SignalAllProcesses",

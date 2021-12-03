@@ -10,7 +10,7 @@ import (
 func TestProcessMgrAdd(t *testing.T) {
 	var procs = NewManager()
 	procs.Clear()
-	procs.Add("test1", NewProcess("github.com/stuartcarnie/gopm", &config.Process{Name: "test1", Group: "test"}))
+	procs.Add("test1", NewProcess("github.com/stuartcarnie/gopm", &config.Process{Name: "test1"}))
 	assert.NotNil(t, procs.Find("test1"))
 }
 

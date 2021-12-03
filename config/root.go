@@ -21,7 +21,6 @@ type root struct {
 	HttpServer  *httpServer       `json:"http_server"`
 	GrpcServer  *grpcServer       `json:"grpc_server"`
 	Programs    []*program        `json:"programs"`
-	Groups      []*group          `json:"groups"`
 	FileSystem  map[string]*file  `json:"filesystem"`
 	Runtime     runtimeConfig     `json:"runtime"`
 }
@@ -70,13 +69,9 @@ type program struct {
 	Labels                   map[string]string `yaml:"labels"`
 }
 
-type group struct {
-	Name     string   `yaml:"name"`
-	Programs []string `yaml:"programs"`
-}
-
 type grpcServer struct {
 	Address  string `yaml:"address"`
+	Network  string `yaml:"network"`
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 }

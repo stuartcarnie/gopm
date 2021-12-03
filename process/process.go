@@ -17,7 +17,6 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ochinchina/filechangemonitor"
-	"github.com/r3labs/diff"
 	"github.com/robfig/cron/v3"
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/logger"
@@ -163,8 +162,6 @@ func (p *Process) MatchLabels(labels map[string]string) bool {
 }
 
 func (p *Process) UpdateConfig(config *config.Process) {
-	changes, _ := diff.Diff(p.Config(), config)
-	_ = changes
 	p.cfgMu.Lock()
 	p.config = config
 	p.cfgMu.Unlock()
@@ -278,11 +275,6 @@ func (p *Process) Destroy(wait bool) {
 // Name returns the name of program
 func (p *Process) Name() string {
 	return p.Config().Name
-}
-
-// Group which group the program belongs to
-func (p *Process) Group() string {
-	return p.Config().Group
 }
 
 // Description get the process status description

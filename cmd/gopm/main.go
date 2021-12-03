@@ -9,18 +9,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"golang.org/x/term"
+
 	"github.com/stuartcarnie/gopm"
 	"github.com/stuartcarnie/gopm/internal/zap/encoder"
 	"github.com/stuartcarnie/gopm/process"
-
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 )
+
+func main() {
+	os.Exit(Main())
+}
 
 func init() {
 	cfg := zap.NewDevelopmentConfig()
 	encoding := "term-color"
-	if os.Getenv("NO_COLOR") != "" {
+	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" || !term.IsTerminal(int(os.Stderr.Fd())) {
 		encoding = "term"
 	}
 	cfg.Encoding = encoding
@@ -94,7 +99,7 @@ func getDefaultShell() string {
 	return sh + " -c"
 }
 
-func main() {
+func Main() int {
 	gopm.ReapZombie()
 
 	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration file")
@@ -106,5 +111,7 @@ func main() {
 
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "Failed to execute command", err)
+		return 1
 	}
+	return 0
 }

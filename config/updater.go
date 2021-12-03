@@ -1,10 +1,10 @@
 package config
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/hashicorp/go-memdb"
-	"github.com/r3labs/diff"
 	"github.com/scylladb/go-set/strset"
 )
 
@@ -16,26 +16,11 @@ func applyUpdates(txn *memdb.Txn, m *root) error {
 type updater struct{}
 
 func (u *updater) update(txn *memdb.Txn, m *root) error {
-	u.applyGroup(txn, m)
 	u.applyHttpServer(txn, m)
 	u.applyGrpcServer(txn, m)
 	u.applyFileSystem(txn, m)
 	u.applyPrograms(txn, m)
 	return nil
-}
-
-func (u *updater) applyGroup(txn *memdb.Txn, m *root) {
-	for _, g := range m.Groups {
-		obj := &group{
-			Name:     g.Name,
-			Programs: g.Programs,
-		}
-		raw, _ := txn.First("group", "id", g.Name)
-		if orig, ok := raw.(*group); ok && !diff.Changed(orig, obj) {
-			continue
-		}
-		_ = txn.Insert("group", obj)
-	}
 }
 
 func (u *updater) applyPrograms(txn *memdb.Txn, m *root) error {
@@ -66,7 +51,6 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *root) error {
 
 		next.Add(program.Name)
 		proc := &Process{
-			Group:                    program.Name, // TODO(sgc): Add back groups,
 			Name:                     program.Name,
 			Directory:                program.Directory,
 			Command:                  program.Command,
@@ -108,7 +92,7 @@ func (u *updater) applyPrograms(txn *memdb.Txn, m *root) error {
 		}
 
 		raw, _ := txn.First("process", "id", program.Name)
-		if orig, ok := raw.(*Process); ok && !diff.Changed(orig, proc) {
+		if orig, ok := raw.(*Process); ok && reflect.DeepEqual(orig, proc) {
 			continue
 		}
 		if err := txn.Insert("process", proc); err != nil {
@@ -142,7 +126,7 @@ func (u *updater) applyHttpServer(txn *memdb.Txn, m *root) {
 	}
 
 	raw, _ := txn.First("server", "id", "http")
-	if orig, ok := raw.(*Server); ok && !diff.Changed(orig, server) {
+	if orig, ok := raw.(*Server); ok && reflect.DeepEqual(orig, server) {
 		return
 	}
 	_ = txn.Insert("server", server)
@@ -162,7 +146,7 @@ func (u *updater) applyGrpcServer(txn *memdb.Txn, m *root) {
 	}
 
 	raw, _ := txn.First("server", "id", "grpc")
-	if orig, ok := raw.(*Server); ok && !diff.Changed(orig, server) {
+	if orig, ok := raw.(*Server); ok && reflect.DeepEqual(orig, server) {
 		return
 	}
 	_ = txn.Insert("server", server)
@@ -178,7 +162,7 @@ func (u *updater) applyFileSystem(txn *memdb.Txn, m *root) {
 		f := f
 
 		raw, _ := txn.First("file", "id", f.Name)
-		if orig, ok := raw.(*file); ok && !diff.Changed(orig, f) {
+		if orig, ok := raw.(*file); ok && reflect.DeepEqual(orig, f) {
 			return
 		}
 		_ = txn.Insert("file", &f)

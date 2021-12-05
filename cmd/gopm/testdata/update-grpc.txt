@@ -1,36 +1,33 @@
 # Test that we can listen on a new gRPC server.
 
 # Start it up. Initial files should be created.
-gopm -c config1.yml --quit-delay 0 &
+gopm -c gopmconfig --quit-delay 0 &
 waitfile started.txt
 
 # Reload the configuration with the new gRPC server address.
-cp config2.yml config1.yml
+cp config2.cue gopmconfig/config.cue
 gopmctl --addr unix:gopm.socket reload
 
 # Shut down the server using the new address.
 gopmctl --addr unix:gopm2.socket shutdown
 wait
 
--- config1.yml --
-grpc_server:
-    network: unix
-    address: gopm.socket
-programs:
-    sleeper:
-      name: sleeper
-      command: |
-        echo started > started.txt
-      directory: progdir
-      stop_signals: ["INT"]
-      stop_as_group: true
-      kill_as_group: true
-      auto_start: true
-      auto_restart: false
-      stop_wait_seconds: 10s
-      start_seconds: 1s
+-- gopmconfig/config.cue --
+package config
 
--- config2.yml --
-grpc_server:
-    network: unix
-    address: gopm2.socket
+grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+programs: sleeper: {
+	command: "echo started > started.txt"
+	directory: "progdir"
+}
+
+-- config2.cue --
+package config
+
+grpc_server: {
+	network: "unix"
+	address: "gopm2.socket"
+}

@@ -2,7 +2,7 @@
 # the program gets an interrupt signal so it can shut down
 # gracefully.
 mkdir progdir
-gopm -c config.yml --quit-delay 0 &
+gopm -c gopmconfig --quit-delay 0 &
 waitfile gopm.socket
 waitfile progdir/started.txt
 gopmctl --addr unix:gopm.socket stop sleeper
@@ -10,20 +10,17 @@ waitfile progdir/intr.txt
 gopmctl --addr unix:gopm.socket shutdown
 wait
 
--- config.yml --
-grpc_server:
-    network: unix
-    address: gopm.socket
-programs:
-    sleeper:
-      name: sleeper
-      command: |
-        interrupt-notify started.txt intr.txt
-      directory: progdir
-      stop_signals: ["INT"]
-      stop_as_group: true
-      kill_as_group: true
-      auto_start: true
-      auto_restart: false
-      stop_wait_seconds: 10s
-      start_seconds: 1s
+-- gopmconfig/config.cue --
+package config
+
+grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+programs: sleeper: {
+	command: """
+		interrupt-notify started.txt intr.txt
+		"""
+	directory: "progdir"
+	stop_signals: ["INT"]
+}

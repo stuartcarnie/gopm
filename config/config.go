@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"time"
 
@@ -25,8 +24,6 @@ func Load(configFile string) (*Config, error) {
 		}
 		cfg.Runtime.Root = cwd
 	}
-	data1, _ := json.Marshal(cfg)
-	log.Printf("config: %s", data1)
 	// TODO check for path conflicts in files.
 	return &cfg, nil
 }

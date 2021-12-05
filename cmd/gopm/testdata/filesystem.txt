@@ -1,0 +1,86 @@
+# Test that files are updated as expected.
+
+# Start it up. Initial files should be created.
+gopm -c config1.yml --quit-delay 0 &
+waitfile started.txt
+cmp foo/foo.txt expect-foo.txt
+cmp bar.txt expect-bar.txt
+
+# Reload the configuration. New files should be created,
+# existing files should be updated, and files no longer
+# present should be removed
+cp config2.yml config1.yml
+gopmctl --addr unix:gopm.socket reload
+! exists foo/foo.txt
+cmp bar.txt expect-bar-2.txt
+cmp foo/baz/baz.txt expect-baz.txt
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- config1.yml --
+grpc_server:
+    network: unix
+    address: gopm.socket
+programs:
+    sleeper:
+      name: sleeper
+      command: |
+        echo started > started.txt
+      directory: progdir
+      stop_signals: ["INT"]
+      stop_as_group: true
+      kill_as_group: true
+      auto_start: true
+      auto_restart: false
+      stop_wait_seconds: 10s
+      start_seconds: 1s
+filesystem:
+  foo:
+    name: foo
+    path: foo/foo.txt
+    content: |
+      something
+  bar:
+    name: bar
+    path: bar.txt
+    content: |
+      other thing
+
+-- config2.yml --
+grpc_server:
+    network: unix
+    address: gopm.socket
+programs:
+    sleeper:
+      name: sleeper
+      command: |
+        interrupt-notify started.txt intr.txt
+      directory: progdir
+      stop_signals: ["INT"]
+      stop_as_group: true
+      kill_as_group: true
+      auto_start: true
+      auto_restart: false
+      stop_wait_seconds: 10s
+      start_seconds: 1s
+filesystem:
+  bar:
+    name: bar
+    path: bar.txt
+    content: |
+      new bar content
+  baz:
+    name: baz
+    path: foo/baz/baz.txt
+    content: |
+      baz content
+
+-- expect-foo.txt --
+something
+-- expect-bar.txt --
+other thing
+-- expect-bar-2.txt --
+new bar content
+-- expect-baz.txt --
+baz content

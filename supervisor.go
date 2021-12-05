@@ -89,7 +89,7 @@ func (s *Supervisor) createFiles(newConfig *config.Config) {
 			}
 		}
 	}
-	for fpath, f := range newConfig.FileSystem {
+	for fpath, f := range byPath {
 		oldFile := s.fileSystem[fpath]
 		if oldFile != nil && oldFile.Content == f.Content {
 			continue
@@ -103,6 +103,7 @@ func (s *Supervisor) createFiles(newConfig *config.Config) {
 			continue
 		}
 	}
+	s.fileSystem = byPath
 }
 
 func (s *Supervisor) createPrograms(newConfig *config.Config) {
@@ -176,35 +177,47 @@ func (s *Supervisor) startGrpcServer(newConfig *config.Config) {
 	if reflect.DeepEqual(s.config.GRPCServer, newConfig.GRPCServer) {
 		return
 	}
-	if s.grpc != nil {
-		s.grpc.GracefulStop()
-		zap.L().Info("Stopped gRPC server")
-		s.grpc = nil
+	var grpcServer *grpc.Server
+	var ln net.Listener
+	if newConfig.GRPCServer != nil {
+		cfg := newConfig.GRPCServer
+		netw := cfg.Network
+		if netw == "" {
+			// TODO default to "tcp" in config
+			netw = "tcp"
+		}
+		// We should be able to listen on the new address
+		// before shutting down the old server because
+		// we know the address has changed.
+		var err error
+		ln, err = net.Listen(netw, cfg.Address)
+		if err != nil {
+			zap.L().Error("Unable to start gRPC", zap.Error(err), zap.String("addr", cfg.Address))
+			return
+		}
+		grpcServer = grpc.NewServer()
+		rpc.RegisterGopmServer(grpcServer, s)
+		reflection.Register(grpcServer)
 	}
-	if newConfig.GRPCServer == nil {
-		return
-	}
-	cfg := newConfig.GRPCServer
-	netw := cfg.Network
-	if netw == "" {
-		// TODO default to "tcp" in config
-		netw = "tcp"
-	}
-	ln, err := net.Listen(netw, cfg.Address)
-	if err != nil {
-		zap.L().Error("Unable to start gRPC", zap.Error(err), zap.String("addr", cfg.Address))
-		return
-	}
-
-	grpcServer := grpc.NewServer()
-	rpc.RegisterGopmServer(grpcServer, s)
-	reflection.Register(grpcServer)
+	// We can't stop the existing gRPC server gracefully because
+	// there's currently an active ReloadConfig call in progress
+	// that's waiting for Supervisor.Reload to finish, so
+	// if we call GracefulStop synchronously, we'll deadlock.
+	// To avoid this, stop the server in the goroutine but update s.grpc
+	// immediately.
+	grpc := s.grpc
 	s.grpc = grpcServer
 
 	go func() {
+		if grpc != nil {
+			grpc.GracefulStop()
+			zap.L().Info("Stopped gRPC server")
+		}
+		if ln == nil {
+			return
+		}
 		zap.L().Info("Starting gRPC server", zap.Stringer("addr", ln.Addr()))
-		err = grpcServer.Serve(ln)
-		if err != nil && err != io.EOF {
+		if err := grpcServer.Serve(ln); err != nil && err != io.EOF {
 			zap.L().Error("Unable to start gRPC server", zap.Error(err))
 		}
 	}()

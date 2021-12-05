@@ -17,7 +17,6 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ochinchina/filechangemonitor"
-	"github.com/r3labs/diff"
 	"github.com/robfig/cron/v3"
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/logger"
@@ -117,11 +116,11 @@ type Process struct {
 	StdoutBacklog    *RingBuffer
 	StderrBacklog    *RingBuffer
 	cfgMu            sync.RWMutex // protects config access
-	config           *config.Process
+	config           *config.Program
 }
 
 // NewProcess create a new Process
-func NewProcess(supervisorID string, cfg *config.Process) *Process {
+func NewProcess(supervisorID string, cfg *config.Program) *Process {
 	fields := []zap.Field{zap.String("name", cfg.Name)}
 	for k, v := range cfg.Labels {
 		fields = append(fields, zap.String(k, v))
@@ -146,7 +145,7 @@ func NewProcess(supervisorID string, cfg *config.Process) *Process {
 // MatchLabels sees if a Process's label-set matches some search set.
 func (p *Process) MatchLabels(labels map[string]string) bool {
 	if len(labels) == 0 {
-		return false
+		return true
 	}
 
 	cfg := p.Config()
@@ -162,15 +161,17 @@ func (p *Process) MatchLabels(labels map[string]string) bool {
 	return true
 }
 
-func (p *Process) UpdateConfig(config *config.Process) {
-	changes, _ := diff.Diff(p.Config(), config)
-	_ = changes
+var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+
+func (p *Process) UpdateConfig(config *config.Program) {
+	// TODO it looks like this won't restart the process if attributes change
+	// like the command to run, its environment, etc.
 	p.cfgMu.Lock()
 	p.config = config
 	p.cfgMu.Unlock()
 }
 
-func (p *Process) Config() *config.Process {
+func (p *Process) Config() *config.Program {
 	p.cfgMu.RLock()
 	defer p.cfgMu.RUnlock()
 	return p.config
@@ -179,8 +180,12 @@ func (p *Process) Config() *config.Process {
 // add this process to crontab
 func (p *Process) addToCron() {
 	cfg := p.config
-	schedule := cfg.CronSchedule()
-	if schedule == nil {
+	if cfg.Cron == "" {
+		return
+	}
+	schedule, err := cronParser.Parse(cfg.Cron)
+	if err != nil {
+		p.log.Error("Invalid cron entry", zap.String("cron", cfg.Cron), zap.Error(err))
 		return
 	}
 
@@ -278,11 +283,6 @@ func (p *Process) Destroy(wait bool) {
 // Name returns the name of program
 func (p *Process) Name() string {
 	return p.Config().Name
-}
-
-// Group which group the program belongs to
-func (p *Process) Group() string {
-	return p.Config().Group
 }
 
 // Description get the process status description
@@ -396,8 +396,8 @@ func (p *Process) SendProcessStdin(chars string) error {
 
 // check if the process should be
 func (p *Process) isAutoRestart() bool {
-	switch p.Config().AutoRestart {
-	case config.AutoStartModeDefault:
+	restart := p.Config().AutoRestart
+	if restart == nil {
 		if p.cmd != nil && p.cmd.ProcessState != nil {
 			exitCode, err := p.getExitCode()
 			// If unexpected, the process will be restarted when the program exits
@@ -406,11 +406,8 @@ func (p *Process) isAutoRestart() bool {
 			return err == nil && !p.inExitCodes(exitCode)
 		}
 		return false
-
-	case config.AutoStartModeAlways:
-		return true
 	}
-	return false
+	return *restart
 }
 
 func (p *Process) inExitCodes(exitCode int) bool {
@@ -448,6 +445,7 @@ func (p *Process) createProgramCommand() error {
 
 	args := strings.SplitN(cfg.Command, " ", 2)
 	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], cfg.Command)...)
+	zap.L().Info(fmt.Sprintf("creating command: %q %q", gShellArgs[0], append(gShellArgs[1:], cfg.Command)))
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
 		p.log.Error("Failed to run as user", zap.String("user", cfg.User))
@@ -553,8 +551,8 @@ func (p *Process) run(finishedFn func()) {
 	}
 	p.startTime = time.Now().Round(time.Millisecond)
 	atomic.StoreInt32(p.retryTimes, 0)
-	startSecs := cfg.StartSeconds
-	restartPause := cfg.RestartPause
+	startSecs := cfg.StartSeconds.D
+	restartPause := cfg.RestartPause.D
 
 	var once sync.Once
 	finishedOnceFn := func() {
@@ -781,7 +779,7 @@ func (p *Process) Stop(wait bool) {
 		sigs = []string{"KILL"}
 	}
 
-	waitDur := cfg.StopWaitSeconds
+	waitDur := cfg.StopWaitSeconds.D
 	stopAsGroup := cfg.StopAsGroup
 	killAsGroup := cfg.KillAsGroup
 	if stopAsGroup && !killAsGroup {

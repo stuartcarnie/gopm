@@ -10,7 +10,7 @@ import (
 //
 // check if program1 is before the program2 in the Entry
 //
-func isProcessBefore(t *testing.T, entries []*config.Process, process1, process2 string) bool {
+func isProcessBefore(t *testing.T, entries []*config.Program, process1, process2 string) bool {
 	t.Helper()
 	order := 0
 	process1Order := -1
@@ -35,42 +35,42 @@ func isProcessBefore(t *testing.T, entries []*config.Process, process1, process2
 }
 
 func TestProcessSorter_Sort(t *testing.T) {
-	processes := make([]*config.Process, 0)
-	program := new(config.Process)
+	processes := make([]*config.Program, 0)
+	program := new(config.Program)
 	program.Name = "prog-1"
 	program.DependsOn = []string{"prog-3"}
 
 	processes = append(processes, program)
 
-	program = new(config.Process)
+	program = new(config.Program)
 	program.Name = "prog-2"
 	program.DependsOn = []string{"prog-1"}
 
 	processes = append(processes, program)
 
-	program = new(config.Process)
+	program = new(config.Program)
 	program.Name = "prog-3"
 	program.DependsOn = []string{"prog-4", "prog-5"}
 
 	processes = append(processes, program)
 
-	program = new(config.Process)
+	program = new(config.Program)
 	program.Name = "prog-5"
 
 	processes = append(processes, program)
 
-	program = new(config.Process)
+	program = new(config.Program)
 	program.Name = "prog-4"
 
 	processes = append(processes, program)
 
-	program = new(config.Process)
+	program = new(config.Program)
 	program.Name = "prog-6"
 	program.Priority = 100
 
 	processes = append(processes, program)
 
-	program = new(config.Process)
+	program = new(config.Program)
 	program.Name = "prog-7"
 	program.Priority = 99
 

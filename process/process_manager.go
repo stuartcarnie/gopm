@@ -1,8 +1,6 @@
 package process
 
 import (
-	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/stuartcarnie/gopm/config"
@@ -23,7 +21,7 @@ func NewManager() *Manager {
 }
 
 // CreateOrUpdateProcess creates a new process and adds it to the manager or updates an existing process.
-func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Process) *Process {
+func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Program) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
@@ -73,79 +71,29 @@ func (pm *Manager) Add(name string, proc *Process) {
 
 // Find find process by program name return process if found or nil if not found
 func (pm *Manager) Find(name string) *Process {
-	procs := pm.FindMatch(name)
-	if len(procs) == 1 {
-		if procs[0].Name() == name || name == fmt.Sprintf("%s:%s", procs[0].Group(), procs[0].Name()) {
-			return procs[0]
-		}
-	}
-	return nil
-}
-
-// FindMatch find the program with one of following format:
-// - group.program
-// - group.*
-// - program
-func (pm *Manager) FindMatch(name string) []*Process {
-	result := make([]*Process, 0)
-	if pos := strings.Index(name, "."); pos != -1 {
-		groupName := name[0:pos]
-		programName := name[pos+1:]
-		pm.ForEachProcess(func(p *Process) {
-			if p.Group() == groupName {
-				if programName == "*" || programName == p.Name() {
-					result = append(result, p)
-				}
-			}
-		})
-	} else {
-		pm.lock.Lock()
-		defer pm.lock.Unlock()
-		proc, ok := pm.procs[name]
-		if ok {
-			result = append(result, proc)
-		}
-	}
-	if len(result) <= 0 {
-		zap.L().Debug("Failed to find process", zap.String("name", name))
-	}
-	return result
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
+	return pm.procs[name]
 }
 
 // FindMatchWithLabels matches Processes by name and labels.
 func (pm *Manager) FindMatchWithLabels(name string, labels map[string]string) []*Process {
-	processes := pm.FindMatch(name)
-
-	// If we locate some matches by name, and we have labels presented as well,
-	// continue filtering using those labels.
-	if len(processes) > 0 {
-		if len(labels) == 0 {
-			return processes
-		}
-
-		var result []*Process
-		for _, p := range processes {
-			if p.MatchLabels(labels) {
-				result = append(result, p)
-			}
-		}
-		return result
-	}
-
-	// Don't fall-through here if we're attempting to look for a name that
-	// hasn't matched anything and we're also using labels.
 	if name != "" {
-		return nil
+		p := pm.Find(name)
+		// Specifying a name and some labels is probably not very useful
+		// but support it anyway.
+		if p == nil || !p.MatchLabels(labels) {
+			return nil
+		}
+		return []*Process{p}
 	}
-
-	// Filter on all processes, because we're using labels to locate matches.
-	var result []*Process
+	var procs []*Process
 	pm.ForEachProcess(func(p *Process) {
 		if p.MatchLabels(labels) {
-			result = append(result, p)
+			procs = append(procs, p)
 		}
 	})
-	return result
+	return procs
 }
 
 // Clear clear all the processes
@@ -215,7 +163,7 @@ func (pm *Manager) StopAllProcesses() {
 }
 
 func sortProcess(procs []*Process) []*Process {
-	progConfigs := make([]*config.Process, 0)
+	progConfigs := make([]*config.Program, 0)
 	for _, proc := range procs {
 		progConfigs = append(progConfigs, proc.config)
 	}

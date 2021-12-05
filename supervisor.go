@@ -6,9 +6,11 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"time"
+	"os"
+	"path/filepath"
+	"reflect"
+	"sync"
 
-	"github.com/hashicorp/go-memdb"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/process"
@@ -18,46 +20,33 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-const (
-	// Version the version of gopm
-	Version = "1.0"
-)
-
 // Supervisor manage all the processes defined in the supervisor configuration file.
 // All the supervisor public interface is defined in this class
 type Supervisor struct {
 	rpc.UnimplementedGopmServer
 	configFile string
-	config     *config.Config   // supervisor configuration
 	procMgr    *process.Manager // process manager
+
+	// mu guards the fields below it.
+	mu         sync.Mutex
+	config     *config.Config // supervisor configuration
+	fileSystem map[string]*config.File
 	httpServer *http.Server
 	grpc       *grpc.Server
-	restarting bool // if supervisor is in restarting state
 }
 
 // NewSupervisor create a Supervisor object with supervisor configuration file
 func NewSupervisor(configFile string) *Supervisor {
 	return &Supervisor{
 		configFile: configFile,
-		config:     config.NewConfig(),
 		procMgr:    process.NewManager(),
-		restarting: false,
+		config:     new(config.Config),
 	}
-}
-
-// GetSupervisorID get the supervisor identifier from configuration file
-func (s *Supervisor) GetSupervisorID() string {
-	return "supervisor"
-}
-
-// IsRestarting check if supervisor is in restarting state
-func (s *Supervisor) IsRestarting() bool {
-	return s.restarting
 }
 
 // Reload reloads the supervisor configuration
 func (s *Supervisor) Reload() error {
-	changes, err := s.config.LoadPath(s.configFile)
+	newConfig, err := config.Load(s.configFile)
 	if err != nil {
 		var el Errors
 		if errors.As(err, &el) {
@@ -69,46 +58,63 @@ func (s *Supervisor) Reload() error {
 		} else {
 			zap.L().Error("Error loading configuration", zap.Error(err))
 		}
-
 		return SupervisorConfigError{Err: err}
 	}
-
-	if len(changes) == 0 {
-		return nil
-	}
-
-	s.createPrograms(changes)
-	s.startHTTPServer(changes)
-	s.startGrpcServer(changes)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.createFiles(newConfig)
+	s.createPrograms(newConfig)
+	s.startHTTPServer(newConfig)
+	s.startGrpcServer(newConfig)
 	s.startAutoStartPrograms()
+	s.config = newConfig
 
 	return nil
 }
 
-// WaitForExit wait the supervisor to exit
-func (s *Supervisor) WaitForExit() {
-	for {
-		if s.IsRestarting() {
-			s.procMgr.StopAllProcesses()
-			break
-		}
-		time.Sleep(10 * time.Second)
+func (s *Supervisor) createFiles(newConfig *config.Config) {
+	// Make sure that the root dir always exists even if there are no files in it.
+	if err := os.MkdirAll(newConfig.Runtime.Root, 0o777); err != nil {
+		zap.L().Error("cannot create root", zap.String("path", newConfig.Runtime.Root), zap.Error(err))
+		return
 	}
-}
-
-func (s *Supervisor) createPrograms(changes memdb.Changes) {
-	for _, ch := range changes {
-		if ch.Table != "process" {
+	byPath := make(map[string]*config.File)
+	for _, f := range newConfig.FileSystem {
+		byPath[filepath.Join(newConfig.Runtime.Root, f.Path)] = f
+	}
+	for fpath := range s.fileSystem {
+		if byPath[fpath] == nil {
+			if err := os.Remove(fpath); err != nil {
+				zap.L().Error("cannot remove file", zap.String("path", fpath), zap.Error(err))
+			}
+		}
+	}
+	for fpath, f := range byPath {
+		oldFile := s.fileSystem[fpath]
+		if oldFile != nil && oldFile.Content == f.Content {
 			continue
 		}
-
-		switch {
-		case ch.Created(), ch.Updated():
-			s.procMgr.CreateOrUpdateProcess(s.GetSupervisorID(), ch.After.(*config.Process))
-
-		case ch.Deleted():
-			s.procMgr.RemoveProcess(ch.Before.(*config.Process).Name)
+		if err := os.MkdirAll(filepath.Dir(fpath), 0777); err != nil {
+			zap.L().Error("cannot create directory", zap.Error(err))
+			continue
 		}
+		if err := os.WriteFile(fpath, []byte(f.Content), 0777); err != nil {
+			zap.L().Error("cannot create file", zap.Error(err))
+			continue
+		}
+	}
+	s.fileSystem = byPath
+}
+
+func (s *Supervisor) createPrograms(newConfig *config.Config) {
+	for name := range s.config.Programs {
+		if newConfig.Programs[name] == nil {
+			s.procMgr.RemoveProcess(name)
+		}
+	}
+	for _, p := range newConfig.Programs {
+		// TODO remove the redundant supervisorID argument.
+		s.procMgr.CreateOrUpdateProcess("supervisor", p)
 	}
 }
 
@@ -116,74 +122,50 @@ func (s *Supervisor) startAutoStartPrograms() {
 	s.procMgr.StartAutoStartPrograms()
 }
 
-func (s *Supervisor) findServerChange(name string, changes memdb.Changes) *memdb.Change {
-	for i := range changes {
-		ch := &changes[i]
-		if ch.Table != "server" {
-			continue
-		}
-
-		var id string
-		if ch.Deleted() {
-			id = ch.Before.(*config.Server).Name
-		} else {
-			id = ch.After.(*config.Server).Name
-		}
-		if id == name {
-			return ch
-		}
+func (s *Supervisor) startHTTPServer(newConfig *config.Config) {
+	if reflect.DeepEqual(newConfig.HTTPServer, s.config.HTTPServer) {
+		return
 	}
-	return nil
-}
-
-func (s *Supervisor) startHTTPServer(changes memdb.Changes) {
-	found := s.findServerChange("http", changes)
-	if found == nil {
+	if s.httpServer != nil {
+		// TODO is it a problem to do this synchronously?
+		err := s.httpServer.Shutdown(context.Background())
+		if err != nil {
+			zap.L().Error("Unable to shutdown HTTP server", zap.Error(err))
+		} else {
+			zap.L().Info("Stopped HTTP server")
+		}
+		s.httpServer = nil
+	}
+	if newConfig.HTTPServer == nil {
 		return
 	}
 
-	var cfg *config.Server
-	if found.Updated() || found.Created() {
-		cfg = found.After.(*config.Server)
+	cfg := newConfig.HTTPServer
+
+	grpcServer := grpc.NewServer()
+	rpc.RegisterGopmServer(grpcServer, s)
+	reflection.Register(grpcServer)
+	wrappedGrpc := grpcweb.WrapServer(grpcServer, grpcweb.WithOriginFunc(func(string) bool { return true }))
+
+	mux := http.NewServeMux()
+	webguiHandler := NewSupervisorWebgui(s).CreateHandler()
+	mux.Handle("/", webguiHandler)
+
+	zap.L().Info("Starting HTTP server", zap.String("addr", cfg.Address))
+
+	srv := http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if wrappedGrpc.IsGrpcWebRequest(req) {
+				wrappedGrpc.ServeHTTP(w, req)
+				return
+			}
+			mux.ServeHTTP(w, req)
+		}),
+		Addr: cfg.Address,
 	}
+	s.httpServer = &srv
 
 	go func() {
-		if s.httpServer != nil {
-			err := s.httpServer.Shutdown(context.Background())
-			if err != nil {
-				zap.L().Error("Unable to shutdown HTTP server", zap.Error(err))
-			} else {
-				zap.L().Info("Stopped HTTP server")
-			}
-			s.httpServer = nil
-		}
-
-		if cfg == nil {
-			return
-		}
-
-		grpcServer := grpc.NewServer()
-		rpc.RegisterGopmServer(grpcServer, s)
-		reflection.Register(grpcServer)
-		wrappedGrpc := grpcweb.WrapServer(grpcServer, grpcweb.WithOriginFunc(func(string) bool { return true }))
-
-		mux := http.NewServeMux()
-		webguiHandler := NewSupervisorWebgui(s).CreateHandler()
-		mux.Handle("/", webguiHandler)
-
-		zap.L().Info("Starting HTTP server", zap.String("addr", cfg.Address))
-
-		srv := http.Server{
-			Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				if wrappedGrpc.IsGrpcWebRequest(req) {
-					wrappedGrpc.ServeHTTP(w, req)
-					return
-				}
-				mux.ServeHTTP(w, req)
-			}),
-			Addr: cfg.Address,
-		}
-		s.httpServer = &srv
 		err := srv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			zap.L().Error("Unable to start HTTP server", zap.Error(err))
@@ -191,43 +173,51 @@ func (s *Supervisor) startHTTPServer(changes memdb.Changes) {
 	}()
 }
 
-func (s *Supervisor) startGrpcServer(changes memdb.Changes) {
-	// restart asynchronously to permit existing Reload request to complete
-	found := s.findServerChange("grpc", changes)
-	if found == nil {
+func (s *Supervisor) startGrpcServer(newConfig *config.Config) {
+	if reflect.DeepEqual(s.config.GRPCServer, newConfig.GRPCServer) {
 		return
 	}
-
-	var cfg *config.Server
-	if found.Updated() || found.Created() {
-		cfg = found.After.(*config.Server)
-	}
-
-	go func() {
-		if s.grpc != nil {
-			s.grpc.GracefulStop()
-			zap.L().Info("Stopped gRPC server")
-			s.grpc = nil
+	var grpcServer *grpc.Server
+	var ln net.Listener
+	if newConfig.GRPCServer != nil {
+		cfg := newConfig.GRPCServer
+		netw := cfg.Network
+		if netw == "" {
+			// TODO default to "tcp" in config
+			netw = "tcp"
 		}
-
-		if cfg == nil {
-			return
-		}
-
-		ln, err := net.Listen("tcp", cfg.Address)
+		// We should be able to listen on the new address
+		// before shutting down the old server because
+		// we know the address has changed.
+		var err error
+		ln, err = net.Listen(netw, cfg.Address)
 		if err != nil {
 			zap.L().Error("Unable to start gRPC", zap.Error(err), zap.String("addr", cfg.Address))
 			return
 		}
-
-		grpcServer := grpc.NewServer()
+		grpcServer = grpc.NewServer()
 		rpc.RegisterGopmServer(grpcServer, s)
 		reflection.Register(grpcServer)
-		s.grpc = grpcServer
+	}
+	// We can't stop the existing gRPC server gracefully because
+	// there's currently an active ReloadConfig call in progress
+	// that's waiting for Supervisor.Reload to finish, so
+	// if we call GracefulStop synchronously, we'll deadlock.
+	// To avoid this, stop the server in the goroutine but update s.grpc
+	// immediately.
+	grpc := s.grpc
+	s.grpc = grpcServer
 
-		zap.L().Info("Starting gRPC server", zap.String("addr", cfg.Address))
-		err = grpcServer.Serve(ln)
-		if err != nil && err != io.EOF {
+	go func() {
+		if grpc != nil {
+			grpc.GracefulStop()
+			zap.L().Info("Stopped gRPC server")
+		}
+		if ln == nil {
+			return
+		}
+		zap.L().Info("Starting gRPC server", zap.Stringer("addr", ln.Addr()))
+		if err := grpcServer.Serve(ln); err != nil && err != io.EOF {
 			zap.L().Error("Unable to start gRPC server", zap.Error(err))
 		}
 	}()

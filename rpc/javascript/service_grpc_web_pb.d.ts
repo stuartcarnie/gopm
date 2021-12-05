@@ -9,13 +9,6 @@ export class GopmClient {
                credentials?: null | { [index: string]: string; },
                options?: null | { [index: string]: any; });
 
-  getVersion(
-    request: google_protobuf_empty_pb.Empty,
-    metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: service_pb.VersionResponse) => void
-  ): grpcWeb.ClientReadableStream<service_pb.VersionResponse>;
-
   getProcessInfo(
     request: google_protobuf_empty_pb.Empty,
     metadata: grpcWeb.Metadata | undefined,
@@ -84,13 +77,6 @@ export class GopmClient {
                response: google_protobuf_empty_pb.Empty) => void
   ): grpcWeb.ClientReadableStream<google_protobuf_empty_pb.Empty>;
 
-  signalProcessGroup(
-    request: service_pb.SignalProcessRequest,
-    metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: service_pb.ProcessInfoResponse) => void
-  ): grpcWeb.ClientReadableStream<service_pb.ProcessInfoResponse>;
-
   signalAllProcesses(
     request: service_pb.SignalProcessRequest,
     metadata: grpcWeb.Metadata | undefined,
@@ -104,11 +90,6 @@ export class GopmPromiseClient {
   constructor (hostname: string,
                credentials?: null | { [index: string]: string; },
                options?: null | { [index: string]: any; });
-
-  getVersion(
-    request: google_protobuf_empty_pb.Empty,
-    metadata?: grpcWeb.Metadata
-  ): Promise<service_pb.VersionResponse>;
 
   getProcessInfo(
     request: google_protobuf_empty_pb.Empty,
@@ -159,11 +140,6 @@ export class GopmPromiseClient {
     request: service_pb.SignalProcessRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<google_protobuf_empty_pb.Empty>;
-
-  signalProcessGroup(
-    request: service_pb.SignalProcessRequest,
-    metadata?: grpcWeb.Metadata
-  ): Promise<service_pb.ProcessInfoResponse>;
 
   signalAllProcesses(
     request: service_pb.SignalProcessRequest,

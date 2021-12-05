@@ -1,0 +1,9 @@
+# Test that we can start the gopm server and shut it down cleanly.
+gopm -c config.yml --quit-delay 0 &
+waitfile gopm.socket
+gopmctl --addr unix:gopm.socket shutdown
+wait
+-- config.yml --
+grpc_server:
+    network: unix
+    address: gopm.socket

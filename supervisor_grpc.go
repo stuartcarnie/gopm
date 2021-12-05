@@ -17,14 +17,9 @@ import (
 
 var _ rpc.GopmServer = (*Supervisor)(nil)
 
-func (s *Supervisor) GetVersion(_ context.Context, _ *empty.Empty) (*rpc.VersionResponse, error) {
-	return &rpc.VersionResponse{Version: Version}, nil
-}
-
 func getRpcProcessInfo(proc *process.Process) *rpc.ProcessInfo {
 	return &rpc.ProcessInfo{
 		Name:          proc.Name(),
-		Group:         proc.Group(),
 		Description:   proc.Description(),
 		Start:         proc.StartTime().Unix(),
 		Stop:          proc.StopTime().Unix(),
@@ -229,23 +224,6 @@ func (s *Supervisor) SignalProcess(_ context.Context, req *rpc.SignalProcessRequ
 	}
 
 	return &empty.Empty{}, nil
-}
-
-func (s *Supervisor) SignalProcessGroup(_ context.Context, req *rpc.SignalProcessRequest) (*rpc.ProcessInfoResponse, error) {
-	sig, err := req.Signal.ToSignal()
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "Invalid signal")
-	}
-
-	var res rpc.ProcessInfoResponse
-	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		if proc.Group() == req.Name {
-			proc.Signal(sig, false)
-			res.Processes = append(res.Processes, getRpcProcessInfo(proc))
-		}
-	})
-
-	return &res, nil
 }
 
 func (s *Supervisor) SignalAllProcesses(_ context.Context, req *rpc.SignalProcessRequest) (*rpc.ProcessInfoResponse, error) {

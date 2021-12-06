@@ -1,37 +1,45 @@
 package process
 
 import (
+	"context"
+	"errors"
+	"io"
+	"os"
 	"sync"
 
 	"github.com/stuartcarnie/gopm/config"
 	"go.uber.org/zap"
 )
 
+// ErrNotFound is returned when a multi-process operation is
+// executed but no processes were found to operate on.
+var ErrNotFound = errors.New("no matching process found")
+
 // Manager manage all the process in the supervisor
 type Manager struct {
-	procs map[string]*Process
+	procs map[string]*process
 	lock  sync.Mutex
 }
 
 // NewManager create a new Manager object
 func NewManager() *Manager {
 	return &Manager{
-		procs: make(map[string]*Process),
+		procs: make(map[string]*process),
 	}
 }
 
 // CreateOrUpdateProcess creates a new process and adds it to the manager or updates an existing process.
-func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Program) *Process {
+func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Program) *process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
 	proc, ok := pm.procs[after.Name]
 	if !ok {
-		proc = NewProcess(supervisorID, after)
+		proc = newProcess(supervisorID, after)
 		pm.procs[after.Name] = proc
 		zap.L().Info("Created process", zap.String("name", after.Name))
 	} else {
-		proc.UpdateConfig(after)
+		proc.updateConfig(after)
 		zap.L().Info("Updated process", zap.String("name", after.Name))
 	}
 
@@ -40,143 +48,191 @@ func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Prog
 
 // RemoveProcess remove the process from the manager and stops it, if it was running.
 // Returns the removed process.
-func (pm *Manager) RemoveProcess(name string) *Process {
+func (pm *Manager) RemoveProcess(name string) *process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	proc := pm.procs[name]
 	if proc != nil {
 		delete(pm.procs, name)
-		proc.Destroy(true)
+		proc.destroy(true)
 		zap.L().Info("Removed process", zap.String("name", name))
 	}
 
 	return proc
 }
 
-// StartAutoStartPrograms start all the program if its autostart is true
+// StartAutoStartPrograms start all the program if its autostart is true.
+// TODO this should be done by the Process itself.
 func (pm *Manager) StartAutoStartPrograms() {
-	pm.ForEachProcess(func(proc *Process) {
+	pm.forEachProcess(func(proc *process) {
 		if proc.config.AutoStart {
-			proc.Start(false)
+			proc.start(false)
 		}
 	})
 }
 
-// Add add the process to this process manager
-func (pm *Manager) Add(name string, proc *Process) {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
-	pm.procs[name] = proc
+func (pm *Manager) forEachMatch(name string, labels map[string]string, f func(p *process)) error {
+	procs := pm.findMatchWithLabels(name, labels)
+	if len(procs) == 0 {
+		return ErrNotFound
+	}
+	for _, p := range procs {
+		f(p)
+	}
+	return nil
 }
 
-// Find find process by program name return process if found or nil if not found
-func (pm *Manager) Find(name string) *Process {
+// find returns the process with the given name, or nil if there are none.
+func (pm *Manager) find(name string) *process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	return pm.procs[name]
 }
 
-// FindMatchWithLabels matches Processes by name and labels.
-func (pm *Manager) FindMatchWithLabels(name string, labels map[string]string) []*Process {
+// findMatchWithLabels returns processes matched by name and labels.
+// If name is empty, all processes matching any of the labels will be returned.
+func (pm *Manager) findMatchWithLabels(name string, labels map[string]string) []*process {
 	if name != "" {
-		p := pm.Find(name)
+		p := pm.find(name)
 		// Specifying a name and some labels is probably not very useful
 		// but support it anyway.
-		if p == nil || !p.MatchLabels(labels) {
+		if p == nil || !p.matchLabels(labels) {
 			return nil
 		}
-		return []*Process{p}
+		return []*process{p}
 	}
-	var procs []*Process
-	pm.ForEachProcess(func(p *Process) {
-		if p.MatchLabels(labels) {
+	var procs []*process
+	pm.forEachProcess(func(p *process) {
+		if p.matchLabels(labels) {
 			procs = append(procs, p)
 		}
 	})
 	return procs
 }
 
-// Clear clear all the processes
-func (pm *Manager) Clear() {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
-	pm.procs = make(map[string]*Process)
-}
-
-// ForEachProcess process each process in sync mode
-func (pm *Manager) ForEachProcess(procFunc func(p *Process)) {
+// forEachProcess calls f for each process in the manager with
+// the mutex obtained.
+func (pm *Manager) forEachProcess(f func(p *process)) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
-	procs := pm.getAllProcess()
-	for _, proc := range procs {
-		procFunc(proc)
+	for _, proc := range pm.allProcesses() {
+		f(proc)
 	}
 }
 
-// AsyncForEachProcess handle each process in async mode
-// Args:
-// - procFunc, the function to handle the process
-// - done, signal the process is completed
-// Returns: number of total processes
-func (pm *Manager) AsyncForEachProcess(procFunc func(p *Process), done chan *Process) int {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
-
-	procs := pm.getAllProcess()
-
-	for _, proc := range procs {
-		go forOneProcess(proc, procFunc, done)
-	}
-	return len(procs)
-}
-
-func forOneProcess(proc *Process, action func(p *Process), done chan *Process) {
-	action(proc)
-	done <- proc
-}
-
-func (pm *Manager) getAllProcess() []*Process {
-	tmpProcs := make([]*Process, 0)
+func (pm *Manager) allProcesses() []*process {
+	procs := make([]*process, 0, len(pm.procs))
 	for _, proc := range pm.procs {
-		tmpProcs = append(tmpProcs, proc)
+		procs = append(procs, proc)
 	}
-	return sortProcess(tmpProcs)
+	return procs
 }
 
-// StopAllProcesses stop all the processes managed by this manager
-func (pm *Manager) StopAllProcesses() {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
+// StopProcesses starts all matching processes.
+func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
+	return pm.forEachMatch(name, labels, func(p *process) {
+		p.start(true)
+	})
+}
 
-	processes := pm.getAllProcess()
-	var wg sync.WaitGroup
-	wg.Add(len(processes))
-	for _, p := range processes {
-		go func(proc *Process) {
-			defer wg.Done()
-			proc.Stop(true)
-		}(p)
+// StopProcesses stops all matching processes.
+func (pm *Manager) StopProcesses(name string, labels map[string]string) error {
+	return pm.forEachMatch(name, labels, func(p *process) {
+		p.stop(true)
+	})
+}
+
+// RestartProcesses restarts all matching processes.
+func (pm *Manager) RestartProcesses(name string, labels map[string]string) error {
+	return pm.forEachMatch(name, labels, func(p *process) {
+		p.stop(true)
+		p.start(true)
+	})
+}
+
+// SignalProcesses sends the given signal to all matching processes.
+func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig os.Signal) error {
+	return pm.forEachMatch(name, labels, func(p *process) {
+		p.signal(sig)
+	})
+}
+
+type TailLogParams struct {
+	Name         string
+	BacklogLines int64
+	Follow       bool
+	Writer       io.Writer
+}
+
+// TailLog tails the log of process named by p.Name, calling
+// p.Write when data is received. When pm.Follow is true,
+// the log will continue to be written until the context is cancelled.
+func (pm *Manager) TailLog(ctx context.Context, p TailLogParams) error {
+	proc := pm.find(p.Name)
+	if proc == nil {
+		return ErrNotFound
+	}
+	if p.BacklogLines > 0 {
+		_, data := proc.outputBacklog.Bytes()
+		data = lastNLines(data, int(p.BacklogLines))
+		if _, err := p.Writer.Write(data); err != nil {
+			return err
+		}
+		if !p.Follow {
+			return nil
+		}
+		// We can miss some data here because there can be a write
+		// between the Bytes call above and adding the new logger.
+		// TODO fix it so that we can't miss data.
 	}
 
+	plog := nopCloser{p.Writer}
+	proc.outputLog.AddLogger(plog)
+	<-ctx.Done()
+	proc.outputLog.RemoveLogger(plog)
+	return nil
+}
+
+// StopAllProcesses stops all the processes managed by this manager
+func (pm *Manager) StopAllProcesses() {
+	var wg sync.WaitGroup
+	pm.forEachProcess(func(p *process) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p.stop(true)
+		}()
+	})
 	wg.Wait()
 }
 
-func sortProcess(procs []*Process) []*Process {
-	progConfigs := make([]*config.Program, 0)
-	for _, proc := range procs {
-		progConfigs = append(progConfigs, proc.config)
-	}
+// AllProcessInfo returns information on all the processes.
+func (pm *Manager) AllProcessInfo() []*ProcessInfo {
+	var infos []*ProcessInfo
+	pm.forEachProcess(func(p *process) {
+		infos = append(infos, p.info())
+	})
+	return infos
+}
 
-	result := make([]*Process, 0)
-	p := newProcessSorter()
-	for _, program := range p.sort(progConfigs) {
-		for _, proc := range procs {
-			if proc.config == program {
-				result = append(result, proc)
-			}
-		}
-	}
+// StartAllProcesses starts all the processes.
+func (pm *Manager) StartAllProcesses() {
+	var wg sync.WaitGroup
+	pm.forEachProcess(func(p *process) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p.start(true)
+		}()
+	})
+	wg.Wait()
+}
 
-	return result
+type nopCloser struct {
+	io.Writer
+}
+
+func (c nopCloser) Close() error {
+	return nil
 }

@@ -5,7 +5,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/spf13/cobra"
-	"github.com/stuartcarnie/gopm/process"
+
+	"github.com/stuartcarnie/gopm/procusage"
 )
 
 var topCmd = cobra.Command{
@@ -26,7 +27,7 @@ var topCmd = cobra.Command{
 			if !control.inProcessMap(p, display) {
 				continue
 			}
-			info, err := process.Stat(int(p.Pid))
+			info, err := procusage.Stat(int(p.Pid))
 			if err != nil {
 				return err
 			}

@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/ochinchina/filechangemonitor"
 	"github.com/robfig/cron/v3"
 	"github.com/stuartcarnie/gopm/config"
@@ -34,29 +33,13 @@ func SetShellArgs(s []string) {
 type State int
 
 const (
-	// Stopped the stopped state
-	Stopped State = 0
-
-	// Starting the starting state
-	Starting State = 10
-
-	// Running the running state
-	Running State = 20
-
-	// Backoff the backoff state
-	Backoff State = 30
-
-	// Stopping the stopping state
-	Stopping State = 40
-
-	// Exited the Exited state
-	Exited State = 100
-
-	// Fatal the Fatal state
-	Fatal State = 200
-
-	// Unknown the unknown state
-	Unknown State = 1000
+	Stopped State = iota
+	Starting
+	Running
+	Backoff
+	Stopping
+	Exited
+	Fatal
 
 	// TODO make this configurable, or (perhaps better) just use the
 	// log file directly rather than having a separate in-memory ring buffer
@@ -93,8 +76,7 @@ func (p State) String() string {
 	}
 }
 
-// Process the program process management data
-type Process struct {
+type process struct {
 	supervisorID string
 	cmd          *exec.Cmd
 	log          *zap.Logger
@@ -109,28 +91,34 @@ type Process struct {
 	retryTimes       *int32
 	mu               sync.RWMutex
 	stdin            io.WriteCloser
-	StdoutLog        *logger.CompositeLogger
-	StderrLog        *logger.CompositeLogger
-	currentStdoutLog logger.Logger
-	currentStderrLog logger.Logger
-	StdoutBacklog    *RingBuffer
-	StderrBacklog    *RingBuffer
+	outputLog        *logger.CompositeLogger
+	currentOutputLog logger.Logger
+	outputBacklog    *ringBuffer
 	cfgMu            sync.RWMutex // protects config access
 	config           *config.Program
 }
 
-// NewProcess create a new Process
-func NewProcess(supervisorID string, cfg *config.Program) *Process {
+type ProcessInfo struct {
+	Name        string
+	Description string
+	Start       time.Time
+	Stop        time.Time
+	State       State
+	ExitStatus  int
+	Logfile     string
+	Pid         int
+}
+
+// newProcess create a new Process
+func newProcess(supervisorID string, cfg *config.Program) *process {
 	fields := []zap.Field{zap.String("name", cfg.Name)}
 	for k, v := range cfg.Labels {
 		fields = append(fields, zap.String(k, v))
 	}
 
-	proc := &Process{
-		StdoutLog:     logger.NewCompositeLogger(),
-		StderrLog:     logger.NewCompositeLogger(),
-		StdoutBacklog: NewRingBuffer(backlogBytes),
-		StderrBacklog: NewRingBuffer(backlogBytes),
+	proc := &process{
+		outputLog:     logger.NewCompositeLogger(),
+		outputBacklog: newRingBuffer(backlogBytes),
 
 		supervisorID: supervisorID,
 		config:       cfg,
@@ -142,13 +130,29 @@ func NewProcess(supervisorID string, cfg *config.Program) *Process {
 	return proc
 }
 
-// MatchLabels sees if a Process's label-set matches some search set.
-func (p *Process) MatchLabels(labels map[string]string) bool {
+func (p *process) info() *ProcessInfo {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	return &ProcessInfo{
+		Name:        p.config.Name,
+		Description: p.description(),
+		Start:       p.startTime,
+		Stop:        p.getStopTime(),
+		State:       p.state,
+		ExitStatus:  p.exitStatus(),
+		Logfile:     p.config.LogFile,
+		Pid:         p.pid(),
+	}
+}
+
+// matchLabels sees if a Process's label-set matches some search set.
+func (p *process) matchLabels(labels map[string]string) bool {
 	if len(labels) == 0 {
 		return true
 	}
 
-	cfg := p.Config()
+	cfg := p.config
 	if len(cfg.Labels) == 0 {
 		return false
 	}
@@ -163,7 +167,7 @@ func (p *Process) MatchLabels(labels map[string]string) bool {
 
 var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 
-func (p *Process) UpdateConfig(config *config.Program) {
+func (p *process) updateConfig(config *config.Program) {
 	// TODO it looks like this won't restart the process if attributes change
 	// like the command to run, its environment, etc.
 	p.cfgMu.Lock()
@@ -171,14 +175,8 @@ func (p *Process) UpdateConfig(config *config.Program) {
 	p.cfgMu.Unlock()
 }
 
-func (p *Process) Config() *config.Program {
-	p.cfgMu.RLock()
-	defer p.cfgMu.RUnlock()
-	return p.config
-}
-
 // add this process to crontab
-func (p *Process) addToCron() {
+func (p *process) addToCron() {
 	cfg := p.config
 	if cfg.Cron == "" {
 		return
@@ -193,16 +191,16 @@ func (p *Process) addToCron() {
 	id := scheduler.Schedule(schedule, cron.FuncJob(func() {
 		p.log.Debug("Running scheduled process")
 		if !p.isRunning() {
-			p.Start(false)
+			p.start(false)
 		}
 	}))
 
 	p.cronID = id
 }
 
-func (p *Process) removeFromCron() {
-	if p.Config() != nil {
-		s := p.Config().Cron
+func (p *process) removeFromCron() {
+	if p.config != nil {
+		s := p.config.Cron
 		if len(s) == 0 {
 			return
 		}
@@ -213,10 +211,10 @@ func (p *Process) removeFromCron() {
 	p.cronID = 0
 }
 
-// Start start the process
+// start start the process
 // Args:
 //  wait - true, wait the program started or failed
-func (p *Process) Start(wait bool) {
+func (p *process) start(wait bool) {
 	p.log.Info("Starting process")
 	p.mu.Lock()
 	if p.inStart {
@@ -272,23 +270,15 @@ func (p *Process) Start(wait bool) {
 	<-waitCh
 }
 
-// Destroy stops the process and removes it from cron
-func (p *Process) Destroy(wait bool) {
+// destroy stops the process and removes it from cron
+func (p *process) destroy(wait bool) {
 	p.removeFromCron()
-	p.Stop(wait)
-	p.StdoutLog.Close()
-	p.StderrLog.Close()
+	p.stop(wait)
+	p.outputLog.Close()
 }
 
-// Name returns the name of program
-func (p *Process) Name() string {
-	return p.Config().Name
-}
-
-// Description get the process status description
-func (p *Process) Description() string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+// description get the process status description
+func (p *process) description() string {
 	if p.state == Running {
 		seconds := int(time.Now().Sub(p.startTime).Seconds())
 		minutes := seconds / 60
@@ -305,10 +295,7 @@ func (p *Process) Description() string {
 }
 
 // GetExitStatus get the exit status of the process if the program exit
-func (p *Process) ExitStatus() int {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
+func (p *process) exitStatus() int {
 	if p.state == Exited || p.state == Backoff {
 		if p.cmd.ProcessState == nil {
 			return 0
@@ -321,72 +308,27 @@ func (p *Process) ExitStatus() int {
 	return 0
 }
 
-// GetPid get the pid of running process or 0 it is not in running status
-func (p *Process) Pid() int {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	if p.state == Stopped || p.state == Fatal || p.state == Unknown || p.state == Exited || p.state == Backoff {
-		return 0
-	}
-	return p.cmd.Process.Pid
-}
-
-// GetState Get the process state
-func (p *Process) State() State {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	return p.state
-}
-
-// GetStartTime get the process start time
-func (p *Process) StartTime() time.Time {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	return p.startTime
-}
-
-// GetStopTime get the process stop time
-func (p *Process) StopTime() time.Time {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
+// pid returns the pid of running process or 0 it is not in running status
+func (p *process) pid() int {
 	switch p.state {
-	case Starting:
-		fallthrough
-	case Running:
-		fallthrough
-	case Stopping:
+	case Starting, Running, Stopping:
+		return p.cmd.Process.Pid
+	}
+	return 0
+}
+
+// stopTime returns the time the process stopped.
+func (p *process) getStopTime() time.Time {
+	switch p.state {
+	case Starting, Running, Stopping:
 		return time.Unix(0, 0)
 	default:
 		return p.stopTime
 	}
 }
 
-// GetStdoutLogfile get the program stdout log file
-func (p *Process) StdoutLogfile() string {
-	fileName := p.Config().StdoutLogFile
-	expandFile, err := homedir.Expand(fileName)
-	if err != nil {
-		return fileName
-	}
-	return expandFile
-}
-
-// GetStderrLogfile get the program stderr log file
-func (p *Process) StderrLogfile() string {
-	fileName := p.Config().StderrLogFile
-	expandFile, err := homedir.Expand(fileName)
-	if err != nil {
-		return fileName
-	}
-	return expandFile
-}
-
-// SendProcessStdin send data to process stdin
-func (p *Process) SendProcessStdin(chars string) error {
+// sendProcessStdin send data to process stdin
+func (p *process) sendProcessStdin(chars string) error {
 	if p.stdin != nil {
 		_, err := p.stdin.Write([]byte(chars))
 		return err
@@ -395,8 +337,8 @@ func (p *Process) SendProcessStdin(chars string) error {
 }
 
 // check if the process should be
-func (p *Process) isAutoRestart() bool {
-	restart := p.Config().AutoRestart
+func (p *process) isAutoRestart() bool {
+	restart := p.config.AutoRestart
 	if restart == nil {
 		if p.cmd != nil && p.cmd.ProcessState != nil {
 			exitCode, err := p.getExitCode()
@@ -410,8 +352,8 @@ func (p *Process) isAutoRestart() bool {
 	return *restart
 }
 
-func (p *Process) inExitCodes(exitCode int) bool {
-	for _, code := range p.Config().ExitCodes {
+func (p *process) inExitCodes(exitCode int) bool {
+	for _, code := range p.config.ExitCodes {
 		if code == exitCode {
 			return true
 		}
@@ -419,7 +361,7 @@ func (p *Process) inExitCodes(exitCode int) bool {
 	return false
 }
 
-func (p *Process) getExitCode() (int, error) {
+func (p *process) getExitCode() (int, error) {
 	if p.cmd.ProcessState == nil {
 		return -1, fmt.Errorf("no exit code")
 	}
@@ -428,7 +370,7 @@ func (p *Process) getExitCode() (int, error) {
 
 // check if the process is running or not
 //
-func (p *Process) isRunning() bool {
+func (p *process) isRunning() bool {
 	if p.cmd != nil && p.cmd.Process != nil {
 		if runtime.GOOS == "windows" {
 			proc, err := os.FindProcess(p.cmd.Process.Pid)
@@ -440,10 +382,11 @@ func (p *Process) isRunning() bool {
 }
 
 // create Command object for the program
-func (p *Process) createProgramCommand() error {
-	cfg := p.Config()
+func (p *process) createProgramCommand() error {
+	cfg := p.config
 
 	args := strings.SplitN(cfg.Command, " ", 2)
+
 	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], cfg.Command)...)
 	zap.L().Info(fmt.Sprintf("creating command: %q %q", gShellArgs[0], append(gShellArgs[1:], cfg.Command)))
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
@@ -455,6 +398,8 @@ func (p *Process) createProgramCommand() error {
 	p.setEnv()
 	p.setDir()
 	p.setLog()
+	// TODO(BUG) This assumes that the binary is directly inside the command's directory,
+	// but it may be anywhere else in $PATH instead.
 	bin := filepath.Join(p.cmd.Dir, args[0])
 	p.setProgramRestartChangeMonitor(bin)
 
@@ -464,18 +409,18 @@ func (p *Process) createProgramCommand() error {
 	return nil
 }
 
-func (p *Process) setProgramRestartChangeMonitor(programPath string) {
-	cfg := p.Config()
+func (p *process) setProgramRestartChangeMonitor(programPath string) {
+	cfg := p.config
 
 	if cfg.RestartWhenBinaryChanged {
 		absPath, err := filepath.Abs(programPath)
 		if err != nil {
 			absPath = programPath
 		}
-		AddProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
+		addProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
 			p.log.Info("Process binary changed")
-			p.Stop(true)
-			p.Start(true)
+			p.stop(true)
+			p.start(true)
 		})
 	}
 	dirMonitor := cfg.RestartDirectoryMonitor
@@ -485,19 +430,19 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 		if err != nil {
 			absDir = dirMonitor
 		}
-		AddConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
+		addConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
 			// fmt.Printf( "filePattern=%s, base=%s\n", filePattern, filepath.Base( path ) )
 			// if matched, err := filepath.Match( filePattern, filepath.Base( path ) ); matched && err == nil {
 			p.log.Info("Watched file for process has changed")
-			p.Stop(true)
-			p.Start(true)
+			p.stop(true)
+			p.start(true)
 			//}
 		})
 	}
 }
 
 // wait for the started program exit
-func (p *Process) waitForExit() {
+func (p *process) waitForExit() {
 	p.cmd.Wait()
 	if p.cmd.ProcessState != nil {
 		p.log.Info("Process stopped", zap.Stringer("status", p.cmd.ProcessState))
@@ -507,12 +452,11 @@ func (p *Process) waitForExit() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.stopTime = time.Now().Round(time.Millisecond)
-	p.currentStdoutLog.Close()
-	p.currentStderrLog.Close()
+	p.currentOutputLog.Close()
 }
 
 // fail to start the program
-func (p *Process) failToStartProgram(reason string, finishedFn func()) {
+func (p *process) failToStartProgram(reason string, finishedFn func()) {
 	p.log.Error(reason)
 	p.changeStateTo(Fatal)
 	finishedFn()
@@ -520,7 +464,7 @@ func (p *Process) failToStartProgram(reason string, finishedFn func()) {
 
 // monitor if the program is in running before endTime
 //
-func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited, programExited *int32) {
+func (p *process) monitorProgramIsRunning(endTime time.Time, monitorExited, programExited *int32) {
 	// if time is not expired
 	for time.Now().Before(endTime) && atomic.LoadInt32(programExited) == 0 {
 		time.Sleep(time.Duration(100) * time.Millisecond)
@@ -536,11 +480,11 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited, prog
 	}
 }
 
-func (p *Process) run(finishedFn func()) {
+func (p *process) run(finishedFn func()) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	cfg := p.Config()
+	cfg := p.config
 
 	// check if the program is in running state
 	if p.isRunning() {
@@ -636,21 +580,16 @@ func (p *Process) run(finishedFn func()) {
 	}
 }
 
-func (p *Process) changeStateTo(procState State) {
+func (p *process) changeStateTo(procState State) {
 	p.state = procState
 }
 
-// Signal send signal to the process
-//
-// Args:
-//   sig - the signal to the process
-//   sigChildren - true: send the signal to the process and its children proess
-//
-func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
+// signal sends the given signal to the process and its children.
+func (p *process) signal(sig os.Signal) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	return p.sendSignal(sig, sigChildren)
+	return p.sendSignal(sig)
 }
 
 // send signal to the process
@@ -659,17 +598,17 @@ func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
 //    sig - the signal to be sent
 //    sigChildren - true if the signal also need to be sent to children process
 //
-func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
+func (p *process) sendSignal(sig os.Signal) error {
 	if p.cmd != nil && p.cmd.Process != nil {
-		err := signals.Kill(p.cmd.Process, sig, sigChildren)
+		err := signals.Kill(p.cmd.Process, sig, true)
 		return err
 	}
 	return fmt.Errorf("process not started")
 }
 
-func (p *Process) setEnv() {
+func (p *process) setEnv() {
 	var env []string
-	for k, v := range p.Config().Environment {
+	for k, v := range p.config.Environment {
 		env = append(env, k+"="+v)
 	}
 
@@ -680,8 +619,8 @@ func (p *Process) setEnv() {
 	}
 }
 
-func (p *Process) setDir() {
-	dir := p.Config().Directory
+func (p *process) setDir() {
+	dir := p.config.Directory
 
 	_, err := os.Stat(dir)
 	if err != nil {
@@ -694,35 +633,28 @@ func (p *Process) setDir() {
 	}
 }
 
-func (p *Process) setLog() {
-	cfg := p.Config()
+func (p *process) setLog() {
+	cfg := p.config
 
 	// Remove the current loggers.
-	p.StdoutLog.RemoveLogger(p.currentStdoutLog)
-	p.StderrLog.RemoveLogger(p.currentStderrLog)
+	p.outputLog.RemoveLogger(p.currentOutputLog)
 
 	// Create a new stdout and stderr loggers using the most up-to-date
 	// configuration and attach them to the composite logger.
-	p.currentStdoutLog = p.createLogger(p.StdoutLogfile(), int64(cfg.StdoutLogFileMaxBytes), cfg.StdoutLogfileBackups)
-	p.currentStderrLog = p.createLogger(p.StderrLogfile(), int64(cfg.StderrLogFileMaxBytes), cfg.StderrLogfileBackups)
-	p.StdoutLog.AddLogger(p.currentStdoutLog)
-	p.StderrLog.AddLogger(p.currentStderrLog)
+	p.currentOutputLog = p.createLogger(cfg.LogFile, int64(cfg.LogFileMaxBytes), cfg.LogfileBackups)
+	p.outputLog.AddLogger(p.currentOutputLog)
 
 	// Attach the loggers and the backlogs to the command.
-	p.cmd.Stdout = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
-	if cfg.RedirectStderr {
-		p.cmd.Stderr = p.cmd.Stdout
-	} else {
-		p.cmd.Stderr = io.MultiWriter(p.StderrLog, p.StderrBacklog)
-	}
+	p.cmd.Stdout = io.MultiWriter(p.outputLog, p.outputBacklog)
+	p.cmd.Stderr = p.cmd.Stdout
 }
 
-func (p *Process) createLogger(logFile string, maxBytes int64, backups int) logger.Logger {
-	return logger.NewLogger(p.Name(), logFile, maxBytes, backups)
+func (p *process) createLogger(logFile string, maxBytes int64, backups int) logger.Logger {
+	return logger.NewLogger(p.config.Name, logFile, maxBytes, backups)
 }
 
-func (p *Process) setUser() error {
-	userName := p.Config().User
+func (p *process) setUser() error {
+	userName := p.config.User
 	if len(userName) == 0 {
 		return nil
 	}
@@ -760,8 +692,8 @@ func (p *Process) setUser() error {
 	return nil
 }
 
-// Stop send signal to process to stop it
-func (p *Process) Stop(wait bool) {
+// stop send signal to process to stop it
+func (p *process) stop(wait bool) {
 	p.mu.Lock()
 	p.stopByUser = true
 	isRunning := p.isRunning()
@@ -771,7 +703,7 @@ func (p *Process) Stop(wait bool) {
 	}
 	p.log.Info("Stopping process")
 
-	cfg := p.Config()
+	cfg := p.config
 
 	sigs := cfg.StopSignals
 	if len(sigs) == 0 {
@@ -780,12 +712,6 @@ func (p *Process) Stop(wait bool) {
 	}
 
 	waitDur := cfg.StopWaitSeconds.D
-	stopAsGroup := cfg.StopAsGroup
-	killAsGroup := cfg.KillAsGroup
-	if stopAsGroup && !killAsGroup {
-		p.log.Error("Invalid group configuration; stop_as_group=true and kill_as_group=false")
-		killAsGroup = stopAsGroup
-	}
 
 	ch := make(chan struct{})
 	go func() {
@@ -799,7 +725,7 @@ func (p *Process) Stop(wait bool) {
 			}
 
 			p.log.Info("Send stop signal to process", zap.String("signal", sigs[i]))
-			_ = p.Signal(sig, stopAsGroup)
+			_ = p.signal(sig)
 
 			endTime := time.Now().Add(waitDur)
 			for endTime.After(time.Now()) {
@@ -813,7 +739,7 @@ func (p *Process) Stop(wait bool) {
 		}
 
 		p.log.Info("Process did not stop in time, sending KILL")
-		p.Signal(syscall.SIGKILL, killAsGroup)
+		p.signal(syscall.SIGKILL)
 	}()
 
 	if wait {
@@ -821,8 +747,8 @@ func (p *Process) Stop(wait bool) {
 	}
 }
 
-// GetStatus get the status of program in string
-func (p *Process) GetStatus() string {
+// getStatus get the status of program in string
+func (p *process) getStatus() string {
 	if p.cmd.ProcessState.Exited() {
 		return p.cmd.ProcessState.String()
 	}

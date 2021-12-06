@@ -60,11 +60,8 @@ export class ProcessInfo extends jspb.Message {
   getNow(): number;
   setNow(value: number): ProcessInfo;
 
-  getState(): ProcessState;
-  setState(value: ProcessState): ProcessInfo;
-
-  getStateName(): string;
-  setStateName(value: string): ProcessInfo;
+  getState(): string;
+  setState(value: string): ProcessInfo;
 
   getSpawnErr(): string;
   setSpawnErr(value: string): ProcessInfo;
@@ -74,12 +71,6 @@ export class ProcessInfo extends jspb.Message {
 
   getLogfile(): string;
   setLogfile(value: string): ProcessInfo;
-
-  getStdoutLogfile(): string;
-  setStdoutLogfile(value: string): ProcessInfo;
-
-  getStderrLogfile(): string;
-  setStderrLogfile(value: string): ProcessInfo;
 
   getPid(): number;
   setPid(value: number): ProcessInfo;
@@ -100,13 +91,10 @@ export namespace ProcessInfo {
     start: number,
     stop: number,
     now: number,
-    state: ProcessState,
-    stateName: string,
+    state: string,
     spawnErr: string,
     exitStatus: number,
     logfile: string,
-    stdoutLogfile: string,
-    stderrLogfile: string,
     pid: number,
   }
 }
@@ -205,9 +193,6 @@ export class TailLogRequest extends jspb.Message {
   getName(): string;
   setName(value: string): TailLogRequest;
 
-  getDevice(): LogDevice;
-  setDevice(value: LogDevice): TailLogRequest;
-
   getBackloglines(): number;
   setBackloglines(value: number): TailLogRequest;
 
@@ -225,7 +210,6 @@ export class TailLogRequest extends jspb.Message {
 export namespace TailLogRequest {
   export type AsObject = {
     name: string,
-    device: LogDevice,
     backloglines: number,
     nofollow: boolean,
   }
@@ -277,10 +261,6 @@ export namespace SignalProcessRequest {
   }
 }
 
-export enum LogDevice { 
-  STDOUT = 0,
-  STDERR = 1,
-}
 export enum ProcessSignal { 
   HUP = 0,
   INT = 1,
@@ -291,14 +271,4 @@ export enum ProcessSignal {
   TERM = 6,
   STOP = 7,
   CONT = 8,
-}
-export enum ProcessState { 
-  STOPPED = 0,
-  STARTING = 10,
-  RUNNING = 20,
-  BACKOFF = 30,
-  STOPPING = 40,
-  EXITED = 100,
-  FATAL = 200,
-  UNKNOWN = 1000,
 }

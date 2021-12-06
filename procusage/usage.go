@@ -1,4 +1,4 @@
-package process
+package procusage
 
 import (
 	"fmt"
@@ -16,20 +16,20 @@ func (r ResourceUsage) HumanResident() string {
 	return humanBytes(r.Resident)
 }
 
-// StatError is returned when Stat-ing a PID.
-type StatError struct {
-	PID int
-	Err error
+// statError is returned when Stat-ing a PID.
+type statError struct {
+	pid int
+	err error
 }
 
 // Error implements error
-func (e StatError) Error() string {
-	return fmt.Sprintf("failed to stat pid %d: %s", e.PID, e.Err)
+func (e statError) Error() string {
+	return fmt.Sprintf("failed to stat pid %d: %s", e.pid, e.err)
 }
 
 // Unwrap allows StatError to be used with errors.Is/As.
-func (e StatError) Unwrap() error {
-	return e.Err
+func (e statError) Unwrap() error {
+	return e.err
 }
 
 func humanBytes(b int) string {

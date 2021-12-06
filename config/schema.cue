@@ -1,7 +1,6 @@
 package gopm
 
 import (
-	"list"
 	pathpkg "path"
 	"time"
 )
@@ -65,50 +64,83 @@ import (
 	name:       =~"^\\w+$"
 	directory?: string
 	command:    string & =~ "."
+
+	// A list of process names that must be started before starting
+	// this process.
+	depends_on?: [...string]
+
+	// labels is
+	labels: [string]: string
 	environment?: {
 		{[=~"^\\w+$"]: string}
 	}
+	// user holds the username to run the process as.
 	user?: string
-	exit_codes?: [...int & >=0 & <=255]
+
+	// priority holds the startup-order priority of the process.
+	// In the absence of a "depends_on" relationship, this
+	// determines the startup and shutdown order of processes.
+	// Higher priority programs will start up later and shut down earlier.
 	priority?:      int
+
+	// restart_pause holds the length of time to wait after a program
+	// has exited before auto-restarting it.
 	restart_pause?: int
+
+	// start_retries holds the maximum number of times to try auto-restarting
+	// a program before giving up.
 	start_retries?: int & >=0
+
+	// start_seconds is the time for which the program needs to stay running after a
+	// startup to consider the start successful.
 	start_seconds?: time.Duration
+
+	// cron holds a cron schedule for running the program.
 	cron?:          string		// TODO validate this
+
+	// auto_start indicates whether the program should start automatically when
+	// gopm is started.
 	auto_start?:    bool
+
+	// auto_restart indicates whether the program should be restarted automatically
+	// after it exits. If it's not present, the program will be restarted if it exits with an
+	// exit code not mentioned in exit_codes.
 	auto_restart?:  bool
 
-	// Path to a directory to monitor and automatically restart the
-	// process if changes are detected
+	// exit_codes holds the set of "expected" exit codes. If the program exits
+	// with one of these codes and auto_restart isn't present, it won't be restarted.
+	exit_codes?: [...int & >=0 & <=255]
+
+	// restart_directory_monitor holds a path to a directory to monitor.
+	// If any changes are detected, the process will be restarted.
 	restart_directory_monitor?: string
 
-	// A pattern used to monitor a path and automatically restart the
-	// process if changes are detected
+	// restart_file_pattern is a shell-style wildcard that selects files considered for restart
+	// when restart_directory_monitor is set.
 	restart_file_pattern?: string
 
-	// Automatically restart the process if changes to the binary are
-	// detected
+	// restart_when_binary_changed indicates whether the process is
+	// automatically restarted if changes to the binary are detected.
+	// Note: this is currently broken - it assumes that the "binary" is determined
+	// by the first word of the command and that it lives directly inside the program's directory.
+	// TODO fix this comment when it's working properly again.
 	restart_when_binary_changed?: bool
-	stop_signals?:                list.UniqueItems() & [..."HUP" | "INT" | "QUIT" | "KILL" | "TERM" | "USR1" | "USR2"]
 
-	// The time to wait for the process to stop before killing.
+	// stop_signals holds a list of signals to send in order to try to kill the running process.
+	// There will be a pause of stop_wait_seconds after each attempt.
+	stop_signals?:                [..."HUP" | "INT" | "QUIT" | "KILL" | "TERM" | "USR1" | "USR2"]
+
+	// stop_wait_seconds holds the time to wait for the process to stop after sending a signal.
 	stop_wait_seconds?:        time.Duration
-	stop_as_group?:            bool
-	kill_as_group?:            bool
-	stdout_logfile?:           string
-	stdout_logfile_backups?:   int
-	stdout_logfile_max_bytes?: int
-
-	// Redirect STDERR to STDOUT
-	redirect_stderr?:          bool
-	stderr_logfile?:           string
-	stderr_logfile_backups?:   int
-	stderr_logfile_max_bytes?: int
 
 	// A list of process names that must be started before starting
 	// this process
 	depends_on?: [...string]
 	labels: [string]: string
+
+	logfile?:           string
+	logfile_backups?:   int
+	logfile_max_bytes?: int
 }
 
 #File: {
@@ -118,8 +150,10 @@ import (
 }
 
 #ConfigWithDefaults: #Config &  {
+	runtime: _
 	...
 	programs: [_]: #Program & {
+		directory: *runtime.cwd | _
 		exit_codes: *[0, 2] | _
 		priority: *999 | _
 		start_retries: *3 | _
@@ -127,16 +161,11 @@ import (
 		auto_start: *true | _
 		auto_restart: *false | _
 		restart_file_pattern: *"*" | _
-		kill_as_group: *true | _
 		stop_signals: *["INT"] | _
-		stop_as_group: *true | _
 		stop_wait_seconds: *"10s" | _
-		stdout_logfile: *"/dev/null" | _
-		stdout_logfile_backups: *10 | _
-		stdout_logfile_max_bytes: *50Mi | _
-		stderr_logfile: *"/dev/null" | _
-		stderr_logfile_backups: *10 | _
-		stderr_logfile_max_bytes: *50Mi | _
+		logfile: *"/dev/null" | _
+		logfile_backups: *10 | _
+		logfile_max_bytes: *50Mi | _
 		...
 	}
 }

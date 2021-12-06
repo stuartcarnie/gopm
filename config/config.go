@@ -186,13 +186,9 @@ type Program struct {
 	StopWaitSeconds          Duration          `json:"stop_wait_seconds"`
 	StopAsGroup              bool              `json:"stop_as_group"`
 	KillAsGroup              bool              `json:"kill_as_group"`
-	StdoutLogFile            string            `json:"stdout_logfile"`
-	StdoutLogfileBackups     int               `json:"stdout_logfile_backups"`
-	StdoutLogFileMaxBytes    int               `json:"stdout_logfile_max_bytes"`
-	RedirectStderr           bool              `json:"redirect_stderr"`
-	StderrLogFile            string            `json:"stderr_logfile"`
-	StderrLogfileBackups     int               `json:"stderr_logfile_backups"`
-	StderrLogFileMaxBytes    int               `json:"stderr_logfile_max_bytes"`
+	LogFile                  string            `json:"logfile"`
+	LogfileBackups           int               `json:"logfile_backups"`
+	LogFileMaxBytes          int               `json:"logfile_max_bytes"`
 	DependsOn                []string          `json:"depends_on"`
 	Labels                   map[string]string `json:"labels"`
 }

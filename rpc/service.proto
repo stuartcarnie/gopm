@@ -39,8 +39,6 @@ message ProcessInfo {
     string spawn_err = 9;
     int64 exit_status = 10;
     string logfile = 11;
-    string stdout_logfile = 12;
-    string stderr_logfile = 13;
     int64 pid = 14;
 }
 
@@ -64,14 +62,8 @@ message ReloadConfigResponse {
     repeated string removed_group = 3;
 }
 
-enum LogDevice {
-    STDOUT = 0;
-    STDERR = 1;
-}
-
 message TailLogRequest {
     string name = 1;
-    LogDevice device = 2;
     int64 backlogLines = 3;
     bool noFollow = 4;
 }

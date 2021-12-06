@@ -71,7 +71,7 @@ func (ctl *Control) getServerURL() string {
 	if ctl.Address != "" {
 		return ctl.Address
 	} else if _, err := os.Stat(ctl.Configuration); err == nil {
-		cfg, err := config.Load(ctl.Configuration)
+		cfg, err := config.Load(ctl.Configuration, "")
 		if err == nil {
 			// TODO return error from getServerURL
 			svr := cfg.GRPCServer

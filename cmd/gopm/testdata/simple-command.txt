@@ -1,23 +1,22 @@
 # Test that we can start a single one-shot program.
 mkdir progdir
-gopm -c config.yml --quit-delay 0 &
+gopm -c gopmconfig --quit-delay 0 &
 waitfile gopm.socket
 waitfile progdir/foo.txt
 cmp progdir/foo.txt  expect-foo.txt
 gopmctl --addr unix:gopm.socket shutdown
 wait
 
--- config.yml --
-grpc_server:
-    network: unix
-    address: gopm.socket
-programs:
-    createfile:
-      name: createfile
-      command: "echo hello > foo.txt"
-      directory: progdir
-      auto_start: true
-      auto_restart: false
+-- gopmconfig/config.cue --
+package config
 
+grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+programs: createfile: {
+	command:      "echo hello > foo.txt"
+	directory:    "progdir"
+}
 -- expect-foo.txt --
 hello

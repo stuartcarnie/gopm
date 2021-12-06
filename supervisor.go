@@ -46,7 +46,7 @@ func NewSupervisor(configFile string) *Supervisor {
 
 // Reload reloads the supervisor configuration
 func (s *Supervisor) Reload() error {
-	newConfig, err := config.Load(s.configFile)
+	newConfig, err := config.Load(s.configFile, "")
 	if err != nil {
 		var el Errors
 		if errors.As(err, &el) {

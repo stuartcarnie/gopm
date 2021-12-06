@@ -103,7 +103,7 @@ func (ctl *Control) printProcessInfo(res *rpc.ProcessInfoResponse, processes map
 	for _, pinfo := range res.Processes {
 		if ctl.inProcessMap(pinfo, processes) {
 			processName := pinfo.GetFullName()
-			_, _ = fmt.Fprintln(tw, strings.Join([]string{processName, state(pinfo.StateName).String(), pinfo.Description}, "\t"))
+			_, _ = fmt.Fprintln(tw, strings.Join([]string{processName, state(pinfo.State).String(), pinfo.Description}, "\t"))
 		}
 	}
 	tw.Flush()

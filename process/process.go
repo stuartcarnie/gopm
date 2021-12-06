@@ -33,29 +33,13 @@ func SetShellArgs(s []string) {
 type State int
 
 const (
-	// Stopped the stopped state
-	Stopped State = 0
-
-	// Starting the starting state
-	Starting State = 10
-
-	// Running the running state
-	Running State = 20
-
-	// Backoff the backoff state
-	Backoff State = 30
-
-	// Stopping the stopping state
-	Stopping State = 40
-
-	// Exited the Exited state
-	Exited State = 100
-
-	// Fatal the Fatal state
-	Fatal State = 200
-
-	// Unknown the unknown state
-	Unknown State = 1000
+	Stopped State = iota
+	Starting
+	Running
+	Backoff
+	Stopping
+	Exited
+	Fatal
 
 	// TODO make this configurable, or (perhaps better) just use the
 	// log file directly rather than having a separate in-memory ring buffer
@@ -319,10 +303,11 @@ func (p *Process) Pid() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	if p.state == Stopped || p.state == Fatal || p.state == Unknown || p.state == Exited || p.state == Backoff {
-		return 0
+	switch p.state {
+	case Starting, Running, Stopping:
+		return p.cmd.Process.Pid
 	}
-	return p.cmd.Process.Pid
+	return 0
 }
 
 // GetState Get the process state

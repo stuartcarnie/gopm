@@ -10,7 +10,7 @@ import (
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 	"github.com/stuartcarnie/gopm/config"
-	"github.com/stuartcarnie/gopm/process"
+	"github.com/stuartcarnie/gopm/procusage"
 	"github.com/stuartcarnie/gopm/rpc"
 	"google.golang.org/grpc"
 )
@@ -133,7 +133,7 @@ func (ctl *Control) inProcessMap(procInfo *rpc.ProcessInfo, processesMap map[str
 
 type processResourceUsage struct {
 	*rpc.ProcessInfo
-	Usage *process.ResourceUsage
+	Usage *procusage.ResourceUsage
 }
 
 func (ctl *Control) printTop(processes []*processResourceUsage) {

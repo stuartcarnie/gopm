@@ -8,8 +8,8 @@ import (
 
 var fileChangeMonitor = filechangemonitor.NewFileChangeMonitor(10)
 
-// AddProgramChangeMonitor add a program change listener to monitor if the program binary
-func AddProgramChangeMonitor(path string, fileChangeCb func(path string, mode filechangemonitor.FileChangeMode)) {
+// addProgramChangeMonitor add a program change listener to monitor if the program binary
+func addProgramChangeMonitor(path string, fileChangeCb func(path string, mode filechangemonitor.FileChangeMode)) {
 	fileChangeMonitor.AddMonitorFile(path,
 		false,
 		filechangemonitor.NewExactFileMatcher(path),
@@ -17,8 +17,8 @@ func AddProgramChangeMonitor(path string, fileChangeCb func(path string, mode fi
 		filechangemonitor.NewFileMD5CompareInfo())
 }
 
-// AddConfigChangeMonitor add a program change listener to monitor if any one of its configuration files is changed
-func AddConfigChangeMonitor(path, filePattern string, fileChangeCb func(path string, mode filechangemonitor.FileChangeMode)) {
+// addConfigChangeMonitor add a program change listener to monitor if any one of its configuration files is changed
+func addConfigChangeMonitor(path, filePattern string, fileChangeCb func(path string, mode filechangemonitor.FileChangeMode)) {
 	fmt.Printf("filePattern=%s\n", filePattern)
 	fileChangeMonitor.AddMonitorFile(path,
 		true,

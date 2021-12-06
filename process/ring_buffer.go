@@ -5,24 +5,24 @@ import (
 	"sync"
 )
 
-// RingBuffer is a ring-buffer.
-type RingBuffer struct {
+// ringBuffer is a ring-buffer.
+type ringBuffer struct {
 	mu      sync.Mutex
 	data    []byte
 	maxSize int
 	p       int64
 }
 
-// NewRingBuffer creates a new RingBuffer with the given
+// newRingBuffer creates a new ringBuffer with the given
 // maximum size in bytes.
-func NewRingBuffer(maxSize int) *RingBuffer {
-	return &RingBuffer{
+func newRingBuffer(maxSize int) *ringBuffer {
+	return &ringBuffer{
 		maxSize: maxSize,
 	}
 }
 
 // Empty zeroes the buffer.
-func (l *RingBuffer) Empty() {
+func (l *ringBuffer) Empty() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -30,8 +30,8 @@ func (l *RingBuffer) Empty() {
 	l.data = l.data[:0]
 }
 
-// Write writes data to the RingBuffer.
-func (l *RingBuffer) Write(b []byte) (int, error) {
+// Write writes data to the ringBuffer.
+func (l *ringBuffer) Write(b []byte) (int, error) {
 	nw := len(b)
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -72,7 +72,7 @@ func (l *RingBuffer) Write(b []byte) (int, error) {
 //
 // We trim the output to the first newline character (if we can find
 // one) in order to keep the output looking nice.
-func (l *RingBuffer) Bytes() (int64, []byte) {
+func (l *ringBuffer) Bytes() (int64, []byte) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

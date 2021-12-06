@@ -1,4 +1,4 @@
-package gopm
+package process
 
 import (
 	"testing"

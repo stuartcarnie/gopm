@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 
 	"github.com/stuartcarnie/gopm"
 	"github.com/stuartcarnie/gopm/internal/zap/encoder"
-	"github.com/stuartcarnie/gopm/process"
 )
 
 func main() {
@@ -78,26 +76,15 @@ var (
 	rootOpt = struct {
 		Configuration string
 		EnvFile       string
-		Shell         string
 		QuitDelay     time.Duration
 	}{}
 
 	rootCmd = cobra.Command{
 		RunE: func(cmd *cobra.Command, args []string) error {
-			process.SetShellArgs(strings.Split(rootOpt.Shell, " "))
 			return runServer()
 		},
 	}
 )
-
-func getDefaultShell() string {
-	sh := os.Getenv("SHELL")
-	if sh == "" {
-		return "/bin/sh -c"
-	}
-
-	return sh + " -c"
-}
 
 func Main() int {
 	gopm.ReapZombie()
@@ -105,7 +92,6 @@ func Main() int {
 	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration file")
 	flags := rootCmd.Flags()
 	flags.StringVar(&rootOpt.EnvFile, "env-file", "", "An optional environment file")
-	flags.StringVar(&rootOpt.Shell, "shell", getDefaultShell(), "Specify an alternate shell path")
 	flags.DurationVar(&rootOpt.QuitDelay, "quit-delay", time.Second, "Time to wait for second CTRL-C before quitting. 0 to quit immediately.")
 	_ = rootCmd.MarkFlagRequired("config")
 

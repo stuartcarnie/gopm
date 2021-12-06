@@ -21,7 +21,7 @@ type Manager struct {
 	lock  sync.Mutex
 }
 
-// NewManager create a new Manager object
+// NewManager returns a new Manager holding no processes.
 func NewManager() *Manager {
 	return &Manager{
 		procs: make(map[string]*process),

@@ -61,9 +61,19 @@ import (
 }
 
 #Program: {
+	// name holds the name of the program. This is implied
+	// from the name of the program entry.
 	name:       =~"^\\w+$"
+
+	// directory holds the directory in which to run the program.
 	directory?: string
+
+	// command holds the command to run the program.
 	command:    string & =~ "."
+
+	// shell specifies the shell command to use to interpret the
+	// above command. The shell is invoked as $shell -c $command.
+	shell?: string
 
 	// A list of process names that must be started before starting
 	// this process.
@@ -119,13 +129,6 @@ import (
 	// when restart_directory_monitor is set.
 	restart_file_pattern?: string
 
-	// restart_when_binary_changed indicates whether the process is
-	// automatically restarted if changes to the binary are detected.
-	// Note: this is currently broken - it assumes that the "binary" is determined
-	// by the first word of the command and that it lives directly inside the program's directory.
-	// TODO fix this comment when it's working properly again.
-	restart_when_binary_changed?: bool
-
 	// stop_signals holds a list of signals to send in order to try to kill the running process.
 	// There will be a pause of stop_wait_seconds after each attempt.
 	stop_signals?:                [..."HUP" | "INT" | "QUIT" | "KILL" | "TERM" | "USR1" | "USR2"]
@@ -151,9 +154,9 @@ import (
 
 #ConfigWithDefaults: #Config &  {
 	runtime: _
-	...
 	programs: [_]: #Program & {
 		directory: *runtime.cwd | _
+		shell: *"/bin/sh" | _
 		exit_codes: *[0, 2] | _
 		priority: *999 | _
 		start_retries: *3 | _

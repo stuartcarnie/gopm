@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,19 +14,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ochinchina/filechangemonitor"
 	"github.com/robfig/cron/v3"
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/logger"
 	"github.com/stuartcarnie/gopm/signals"
 	"go.uber.org/zap"
 )
-
-var gShellArgs []string
-
-func SetShellArgs(s []string) {
-	gShellArgs = s
-}
 
 // State the state of process
 type State int
@@ -109,7 +101,6 @@ type ProcessInfo struct {
 	Pid         int
 }
 
-// newProcess create a new Process
 func newProcess(supervisorID string, cfg *config.Program) *process {
 	fields := []zap.Field{zap.String("name", cfg.Name)}
 	for k, v := range cfg.Labels {
@@ -385,10 +376,9 @@ func (p *process) isRunning() bool {
 func (p *process) createProgramCommand() error {
 	cfg := p.config
 
-	args := strings.SplitN(cfg.Command, " ", 2)
+	p.cmd = exec.Command(cfg.Shell, "-c", cfg.Command)
 
-	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], cfg.Command)...)
-	zap.L().Info(fmt.Sprintf("creating command: %q %q", gShellArgs[0], append(gShellArgs[1:], cfg.Command)))
+	zap.L().Info(fmt.Sprintf("creating command: %q %q %q", p.config.Shell, "-c", cfg.Command))
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
 		p.log.Error("Failed to run as user", zap.String("user", cfg.User))
@@ -398,47 +388,11 @@ func (p *process) createProgramCommand() error {
 	p.setEnv()
 	p.setDir()
 	p.setLog()
-	// TODO(BUG) This assumes that the binary is directly inside the command's directory,
-	// but it may be anywhere else in $PATH instead.
-	bin := filepath.Join(p.cmd.Dir, args[0])
-	p.setProgramRestartChangeMonitor(bin)
 
 	p.log.Info("created program command")
 
 	p.stdin, _ = p.cmd.StdinPipe()
 	return nil
-}
-
-func (p *process) setProgramRestartChangeMonitor(programPath string) {
-	cfg := p.config
-
-	if cfg.RestartWhenBinaryChanged {
-		absPath, err := filepath.Abs(programPath)
-		if err != nil {
-			absPath = programPath
-		}
-		addProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
-			p.log.Info("Process binary changed")
-			p.stop(true)
-			p.start(true)
-		})
-	}
-	dirMonitor := cfg.RestartDirectoryMonitor
-	filePattern := cfg.RestartFilePattern
-	if dirMonitor != "" {
-		absDir, err := filepath.Abs(dirMonitor)
-		if err != nil {
-			absDir = dirMonitor
-		}
-		addConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
-			// fmt.Printf( "filePattern=%s, base=%s\n", filePattern, filepath.Base( path ) )
-			// if matched, err := filepath.Match( filePattern, filepath.Base( path ) ); matched && err == nil {
-			p.log.Info("Watched file for process has changed")
-			p.stop(true)
-			p.start(true)
-			//}
-		})
-	}
 }
 
 // wait for the started program exit

@@ -166,31 +166,31 @@ type RuntimeConfig struct {
 }
 
 type Program struct {
-	Name                     string            `json:"name"`
-	Directory                string            `json:"directory"`
-	Command                  string            `json:"command"`
-	Environment              map[string]string `json:"environment"`
-	User                     string            `json:"user"`
-	ExitCodes                []int             `json:"exit_codes"`
-	Priority                 int               `json:"priority"`
-	RestartPause             Duration          `json:"restart_pause"`
-	StartRetries             int               `json:"start_retries"`
-	StartSeconds             Duration          `json:"start_seconds"`
-	Cron                     string            `json:"cron"`
-	AutoStart                bool              `json:"auto_start"`
-	AutoRestart              *bool             `json:"auto_restart,omitempty"`
-	RestartDirectoryMonitor  string            `json:"restart_directory_monitor"`
-	RestartFilePattern       string            `json:"restart_file_pattern"`
-	RestartWhenBinaryChanged bool              `json:"restart_when_binary_changed"`
-	StopSignals              []string          `json:"stop_signals"`
-	StopWaitSeconds          Duration          `json:"stop_wait_seconds"`
-	StopAsGroup              bool              `json:"stop_as_group"`
-	KillAsGroup              bool              `json:"kill_as_group"`
-	LogFile                  string            `json:"logfile"`
-	LogfileBackups           int               `json:"logfile_backups"`
-	LogFileMaxBytes          int               `json:"logfile_max_bytes"`
-	DependsOn                []string          `json:"depends_on"`
-	Labels                   map[string]string `json:"labels"`
+	Name                    string            `json:"name"`
+	Directory               string            `json:"directory"`
+	Command                 string            `json:"command"`
+	Shell                   string            `json:"shell"`
+	Environment             map[string]string `json:"environment"`
+	User                    string            `json:"user"`
+	ExitCodes               []int             `json:"exit_codes"`
+	Priority                int               `json:"priority"`
+	RestartPause            Duration          `json:"restart_pause"`
+	StartRetries            int               `json:"start_retries"`
+	StartSeconds            Duration          `json:"start_seconds"`
+	Cron                    string            `json:"cron"`
+	AutoStart               bool              `json:"auto_start"`
+	AutoRestart             *bool             `json:"auto_restart,omitempty"`
+	RestartDirectoryMonitor string            `json:"restart_directory_monitor"`
+	RestartFilePattern      string            `json:"restart_file_pattern"`
+	StopSignals             []string          `json:"stop_signals"`
+	StopWaitSeconds         Duration          `json:"stop_wait_seconds"`
+	StopAsGroup             bool              `json:"stop_as_group"`
+	KillAsGroup             bool              `json:"kill_as_group"`
+	LogFile                 string            `json:"logfile"`
+	LogfileBackups          int               `json:"logfile_backups"`
+	LogFileMaxBytes         int               `json:"logfile_max_bytes"`
+	DependsOn               []string          `json:"depends_on"`
+	Labels                  map[string]string `json:"labels"`
 }
 
 type Server struct {

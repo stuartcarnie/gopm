@@ -1,8 +1,10 @@
 package gopm
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"log"
 	"os"
 	"time"
 
@@ -19,19 +21,17 @@ var _ rpc.GopmServer = (*Supervisor)(nil)
 
 func getRpcProcessInfo(proc *process.Process) *rpc.ProcessInfo {
 	return &rpc.ProcessInfo{
-		Name:          proc.Name(),
-		Description:   proc.Description(),
-		Start:         proc.StartTime().Unix(),
-		Stop:          proc.StopTime().Unix(),
-		Now:           time.Now().Unix(),
-		State:         rpc.ProcessState(proc.State()),
-		StateName:     proc.State().String(),
-		SpawnErr:      "",
-		ExitStatus:    int64(proc.ExitStatus()),
-		Logfile:       proc.StdoutLogfile(),
-		StdoutLogfile: proc.StdoutLogfile(),
-		StderrLogfile: proc.StderrLogfile(),
-		Pid:           int64(proc.Pid()),
+		Name:        proc.Name(),
+		Description: proc.Description(),
+		Start:       proc.StartTime().Unix(),
+		Stop:        proc.StopTime().Unix(),
+		Now:         time.Now().Unix(),
+		State:       rpc.ProcessState(proc.State()),
+		StateName:   proc.State().String(),
+		SpawnErr:    "",
+		ExitStatus:  int64(proc.ExitStatus()),
+		Logfile:     proc.Logfile(),
+		Pid:         int64(proc.Pid()),
 	}
 }
 
@@ -157,18 +157,12 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 		return status.Error(codes.NotFound, "Process not found")
 	}
 
-	compositeLogger := proc.StdoutLog
-	backlog := proc.StdoutBacklog
-	if req.Device == rpc.LogDevice_STDERR {
-		compositeLogger = proc.StderrLog
-		backlog = proc.StderrBacklog
-	}
-
 	ctx := stream.Context()
 	var res rpc.TailLogResponse
 	if req.BacklogLines > 0 {
-		_, data := backlog.Bytes()
+		_, data := proc.OutputBacklog.Bytes()
 		res.Lines = lastNLines(data, int(req.BacklogLines))
+		log.Printf("lastNLlines %q -> %q", data, res.Lines)
 		if err := stream.Send(&res); err != nil {
 			return err
 		}
@@ -185,7 +179,7 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 	defer pw.Close()
 
 	plog := logger.NewStdLogger(pw)
-	compositeLogger.AddLogger(plog)
+	proc.OutputLog.AddLogger(plog)
 	go func() {
 		<-ctx.Done()
 		pr.Close()
@@ -203,7 +197,7 @@ outer:
 			break outer
 		}
 	}
-	compositeLogger.RemoveLogger(plog)
+	proc.OutputLog.RemoveLogger(plog)
 
 	return nil
 }
@@ -244,24 +238,22 @@ func (s *Supervisor) SignalAllProcesses(_ context.Context, req *rpc.SignalProces
 // lastNLines walks backwards through a buffer to identify the location of the
 // newline preceeding the Nth line of the content.
 func lastNLines(b []byte, n int) []byte {
-	if len(b) == 0 {
-		return b
+	if len(b) == 0 || n <= 0 {
+		return nil
 	}
-
-	count := 0
+	// We'll count the last line as a full line even if it doesn't
+	// end with a newline.
+	i := len(b)
 	if b[len(b)-1] == '\n' {
-		count = -1
+		i--
 	}
-
-	i := len(b) - 1
-	for ; i > 0; i-- {
-		if b[i] == '\n' {
-			count++
+	for nfound := 0; nfound < n; {
+		nl := bytes.LastIndexByte(b[:i], '\n')
+		if nl == -1 {
+			return b
 		}
-		if count == n {
-			break
-		}
+		nfound++
+		i = nl
 	}
-
 	return b[i+1:]
 }

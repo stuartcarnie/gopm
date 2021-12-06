@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/ochinchina/filechangemonitor"
 	"github.com/robfig/cron/v3"
 	"github.com/stuartcarnie/gopm/config"
@@ -109,12 +108,9 @@ type Process struct {
 	retryTimes       *int32
 	mu               sync.RWMutex
 	stdin            io.WriteCloser
-	StdoutLog        *logger.CompositeLogger
-	StderrLog        *logger.CompositeLogger
-	currentStdoutLog logger.Logger
-	currentStderrLog logger.Logger
-	StdoutBacklog    *RingBuffer
-	StderrBacklog    *RingBuffer
+	OutputLog        *logger.CompositeLogger
+	currentOutputLog logger.Logger
+	OutputBacklog    *RingBuffer
 	cfgMu            sync.RWMutex // protects config access
 	config           *config.Program
 }
@@ -127,10 +123,8 @@ func NewProcess(supervisorID string, cfg *config.Program) *Process {
 	}
 
 	proc := &Process{
-		StdoutLog:     logger.NewCompositeLogger(),
-		StderrLog:     logger.NewCompositeLogger(),
-		StdoutBacklog: NewRingBuffer(backlogBytes),
-		StderrBacklog: NewRingBuffer(backlogBytes),
+		OutputLog:     logger.NewCompositeLogger(),
+		OutputBacklog: NewRingBuffer(backlogBytes),
 
 		supervisorID: supervisorID,
 		config:       cfg,
@@ -276,8 +270,7 @@ func (p *Process) Start(wait bool) {
 func (p *Process) Destroy(wait bool) {
 	p.removeFromCron()
 	p.Stop(wait)
-	p.StdoutLog.Close()
-	p.StderrLog.Close()
+	p.OutputLog.Close()
 }
 
 // Name returns the name of program
@@ -365,24 +358,9 @@ func (p *Process) StopTime() time.Time {
 	}
 }
 
-// GetStdoutLogfile get the program stdout log file
-func (p *Process) StdoutLogfile() string {
-	fileName := p.Config().StdoutLogFile
-	expandFile, err := homedir.Expand(fileName)
-	if err != nil {
-		return fileName
-	}
-	return expandFile
-}
-
-// GetStderrLogfile get the program stderr log file
-func (p *Process) StderrLogfile() string {
-	fileName := p.Config().StderrLogFile
-	expandFile, err := homedir.Expand(fileName)
-	if err != nil {
-		return fileName
-	}
-	return expandFile
+// Logfile returns the program's output log file
+func (p *Process) Logfile() string {
+	return p.Config().LogFile
 }
 
 // SendProcessStdin send data to process stdin
@@ -507,8 +485,7 @@ func (p *Process) waitForExit() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.stopTime = time.Now().Round(time.Millisecond)
-	p.currentStdoutLog.Close()
-	p.currentStderrLog.Close()
+	p.currentOutputLog.Close()
 }
 
 // fail to start the program
@@ -698,23 +675,16 @@ func (p *Process) setLog() {
 	cfg := p.Config()
 
 	// Remove the current loggers.
-	p.StdoutLog.RemoveLogger(p.currentStdoutLog)
-	p.StderrLog.RemoveLogger(p.currentStderrLog)
+	p.OutputLog.RemoveLogger(p.currentOutputLog)
 
 	// Create a new stdout and stderr loggers using the most up-to-date
 	// configuration and attach them to the composite logger.
-	p.currentStdoutLog = p.createLogger(p.StdoutLogfile(), int64(cfg.StdoutLogFileMaxBytes), cfg.StdoutLogfileBackups)
-	p.currentStderrLog = p.createLogger(p.StderrLogfile(), int64(cfg.StderrLogFileMaxBytes), cfg.StderrLogfileBackups)
-	p.StdoutLog.AddLogger(p.currentStdoutLog)
-	p.StderrLog.AddLogger(p.currentStderrLog)
+	p.currentOutputLog = p.createLogger(cfg.LogFile, int64(cfg.LogFileMaxBytes), cfg.LogfileBackups)
+	p.OutputLog.AddLogger(p.currentOutputLog)
 
 	// Attach the loggers and the backlogs to the command.
-	p.cmd.Stdout = io.MultiWriter(p.StdoutLog, p.StdoutBacklog)
-	if cfg.RedirectStderr {
-		p.cmd.Stderr = p.cmd.Stdout
-	} else {
-		p.cmd.Stderr = io.MultiWriter(p.StderrLog, p.StderrBacklog)
-	}
+	p.cmd.Stdout = io.MultiWriter(p.OutputLog, p.OutputBacklog)
+	p.cmd.Stderr = p.cmd.Stdout
 }
 
 func (p *Process) createLogger(logFile string, maxBytes int64, backups int) logger.Logger {

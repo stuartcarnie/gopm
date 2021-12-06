@@ -95,20 +95,15 @@ import (
 	stop_wait_seconds?:        time.Duration
 	stop_as_group?:            bool
 	kill_as_group?:            bool
-	stdout_logfile?:           string
-	stdout_logfile_backups?:   int
-	stdout_logfile_max_bytes?: int
-
-	// Redirect STDERR to STDOUT
-	redirect_stderr?:          bool
-	stderr_logfile?:           string
-	stderr_logfile_backups?:   int
-	stderr_logfile_max_bytes?: int
 
 	// A list of process names that must be started before starting
 	// this process
 	depends_on?: [...string]
 	labels: [string]: string
+
+	logfile?:           string
+	logfile_backups?:   int
+	logfile_max_bytes?: int
 }
 
 #File: {
@@ -131,12 +126,9 @@ import (
 		stop_signals: *["INT"] | _
 		stop_as_group: *true | _
 		stop_wait_seconds: *"10s" | _
-		stdout_logfile: *"/dev/null" | _
-		stdout_logfile_backups: *10 | _
-		stdout_logfile_max_bytes: *50Mi | _
-		stderr_logfile: *"/dev/null" | _
-		stderr_logfile_backups: *10 | _
-		stderr_logfile_max_bytes: *50Mi | _
+		logfile: *"/dev/null" | _
+		logfile_backups: *10 | _
+		logfile_max_bytes: *50Mi | _
 		...
 	}
 }

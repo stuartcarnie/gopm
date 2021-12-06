@@ -14,7 +14,6 @@ var global = Function('return this')();
 
 var google_protobuf_empty_pb = require('google-protobuf/google/protobuf/empty_pb.js');
 goog.object.extend(proto, google_protobuf_empty_pb);
-goog.exportSymbol('proto.gopm.rpc.LogDevice', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessInfo', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessInfoResponse', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessSignal', null, global);
@@ -570,8 +569,6 @@ proto.gopm.rpc.ProcessInfo.toObject = function(includeInstance, msg) {
     spawnErr: jspb.Message.getFieldWithDefault(msg, 9, ""),
     exitStatus: jspb.Message.getFieldWithDefault(msg, 10, 0),
     logfile: jspb.Message.getFieldWithDefault(msg, 11, ""),
-    stdoutLogfile: jspb.Message.getFieldWithDefault(msg, 12, ""),
-    stderrLogfile: jspb.Message.getFieldWithDefault(msg, 13, ""),
     pid: jspb.Message.getFieldWithDefault(msg, 14, 0)
   };
 
@@ -652,14 +649,6 @@ proto.gopm.rpc.ProcessInfo.deserializeBinaryFromReader = function(msg, reader) {
     case 11:
       var value = /** @type {string} */ (reader.readString());
       msg.setLogfile(value);
-      break;
-    case 12:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setStdoutLogfile(value);
-      break;
-    case 13:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setStderrLogfile(value);
       break;
     case 14:
       var value = /** @type {number} */ (reader.readInt64());
@@ -768,20 +757,6 @@ proto.gopm.rpc.ProcessInfo.serializeBinaryToWriter = function(message, writer) {
   if (f.length > 0) {
     writer.writeString(
       11,
-      f
-    );
-  }
-  f = message.getStdoutLogfile();
-  if (f.length > 0) {
-    writer.writeString(
-      12,
-      f
-    );
-  }
-  f = message.getStderrLogfile();
-  if (f.length > 0) {
-    writer.writeString(
-      13,
       f
     );
   }
@@ -990,42 +965,6 @@ proto.gopm.rpc.ProcessInfo.prototype.getLogfile = function() {
  */
 proto.gopm.rpc.ProcessInfo.prototype.setLogfile = function(value) {
   return jspb.Message.setProto3StringField(this, 11, value);
-};
-
-
-/**
- * optional string stdout_logfile = 12;
- * @return {string}
- */
-proto.gopm.rpc.ProcessInfo.prototype.getStdoutLogfile = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 12, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.gopm.rpc.ProcessInfo} returns this
- */
-proto.gopm.rpc.ProcessInfo.prototype.setStdoutLogfile = function(value) {
-  return jspb.Message.setProto3StringField(this, 12, value);
-};
-
-
-/**
- * optional string stderr_logfile = 13;
- * @return {string}
- */
-proto.gopm.rpc.ProcessInfo.prototype.getStderrLogfile = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 13, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.gopm.rpc.ProcessInfo} returns this
- */
-proto.gopm.rpc.ProcessInfo.prototype.setStderrLogfile = function(value) {
-  return jspb.Message.setProto3StringField(this, 13, value);
 };
 
 
@@ -1758,7 +1697,6 @@ proto.gopm.rpc.TailLogRequest.prototype.toObject = function(opt_includeInstance)
 proto.gopm.rpc.TailLogRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    device: jspb.Message.getFieldWithDefault(msg, 2, 0),
     backloglines: jspb.Message.getFieldWithDefault(msg, 3, 0),
     nofollow: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
@@ -1800,10 +1738,6 @@ proto.gopm.rpc.TailLogRequest.deserializeBinaryFromReader = function(msg, reader
     case 1:
       var value = /** @type {string} */ (reader.readString());
       msg.setName(value);
-      break;
-    case 2:
-      var value = /** @type {!proto.gopm.rpc.LogDevice} */ (reader.readEnum());
-      msg.setDevice(value);
       break;
     case 3:
       var value = /** @type {number} */ (reader.readInt64());
@@ -1849,13 +1783,6 @@ proto.gopm.rpc.TailLogRequest.serializeBinaryToWriter = function(message, writer
       f
     );
   }
-  f = message.getDevice();
-  if (f !== 0.0) {
-    writer.writeEnum(
-      2,
-      f
-    );
-  }
   f = message.getBackloglines();
   if (f !== 0) {
     writer.writeInt64(
@@ -1888,24 +1815,6 @@ proto.gopm.rpc.TailLogRequest.prototype.getName = function() {
  */
 proto.gopm.rpc.TailLogRequest.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional LogDevice device = 2;
- * @return {!proto.gopm.rpc.LogDevice}
- */
-proto.gopm.rpc.TailLogRequest.prototype.getDevice = function() {
-  return /** @type {!proto.gopm.rpc.LogDevice} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
-};
-
-
-/**
- * @param {!proto.gopm.rpc.LogDevice} value
- * @return {!proto.gopm.rpc.TailLogRequest} returns this
- */
-proto.gopm.rpc.TailLogRequest.prototype.setDevice = function(value) {
-  return jspb.Message.setProto3EnumField(this, 2, value);
 };
 
 
@@ -2291,14 +2200,6 @@ proto.gopm.rpc.SignalProcessRequest.prototype.clearLabelsMap = function() {
   this.getLabelsMap().clear();
   return this;};
 
-
-/**
- * @enum {number}
- */
-proto.gopm.rpc.LogDevice = {
-  STDOUT: 0,
-  STDERR: 1
-};
 
 /**
  * @enum {number}

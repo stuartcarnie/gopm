@@ -444,6 +444,7 @@ func (p *Process) createProgramCommand() error {
 	cfg := p.Config()
 
 	args := strings.SplitN(cfg.Command, " ", 2)
+
 	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], cfg.Command)...)
 	zap.L().Info(fmt.Sprintf("creating command: %q %q", gShellArgs[0], append(gShellArgs[1:], cfg.Command)))
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
@@ -455,6 +456,8 @@ func (p *Process) createProgramCommand() error {
 	p.setEnv()
 	p.setDir()
 	p.setLog()
+	// TODO(BUG) This assumes that the binary is directly inside the command's directory,
+	// but it may be anywhere else in $PATH instead.
 	bin := filepath.Join(p.cmd.Dir, args[0])
 	p.setProgramRestartChangeMonitor(bin)
 
@@ -640,17 +643,12 @@ func (p *Process) changeStateTo(procState State) {
 	p.state = procState
 }
 
-// Signal send signal to the process
-//
-// Args:
-//   sig - the signal to the process
-//   sigChildren - true: send the signal to the process and its children proess
-//
-func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
+// Signal sends the given signal to the process and its children.
+func (p *Process) Signal(sig os.Signal) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	return p.sendSignal(sig, sigChildren)
+	return p.sendSignal(sig)
 }
 
 // send signal to the process
@@ -659,9 +657,9 @@ func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
 //    sig - the signal to be sent
 //    sigChildren - true if the signal also need to be sent to children process
 //
-func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
+func (p *Process) sendSignal(sig os.Signal) error {
 	if p.cmd != nil && p.cmd.Process != nil {
-		err := signals.Kill(p.cmd.Process, sig, sigChildren)
+		err := signals.Kill(p.cmd.Process, sig, true)
 		return err
 	}
 	return fmt.Errorf("process not started")
@@ -780,12 +778,6 @@ func (p *Process) Stop(wait bool) {
 	}
 
 	waitDur := cfg.StopWaitSeconds.D
-	stopAsGroup := cfg.StopAsGroup
-	killAsGroup := cfg.KillAsGroup
-	if stopAsGroup && !killAsGroup {
-		p.log.Error("Invalid group configuration; stop_as_group=true and kill_as_group=false")
-		killAsGroup = stopAsGroup
-	}
 
 	ch := make(chan struct{})
 	go func() {
@@ -799,7 +791,7 @@ func (p *Process) Stop(wait bool) {
 			}
 
 			p.log.Info("Send stop signal to process", zap.String("signal", sigs[i]))
-			_ = p.Signal(sig, stopAsGroup)
+			_ = p.Signal(sig)
 
 			endTime := time.Now().Add(waitDur)
 			for endTime.After(time.Now()) {
@@ -813,7 +805,7 @@ func (p *Process) Stop(wait bool) {
 		}
 
 		p.log.Info("Process did not stop in time, sending KILL")
-		p.Signal(syscall.SIGKILL, killAsGroup)
+		p.Signal(syscall.SIGKILL)
 	}()
 
 	if wait {

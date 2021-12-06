@@ -220,7 +220,7 @@ func (s *Supervisor) SignalProcess(_ context.Context, req *rpc.SignalProcessRequ
 
 	for _, proc := range procs {
 		// TODO(sgc): collect errors?
-		_ = proc.Signal(sig, false)
+		_ = proc.Signal(sig)
 	}
 
 	return &empty.Empty{}, nil
@@ -234,7 +234,7 @@ func (s *Supervisor) SignalAllProcesses(_ context.Context, req *rpc.SignalProces
 
 	var res rpc.ProcessInfoResponse
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		proc.Signal(sig, false)
+		proc.Signal(sig)
 		res.Processes = append(res.Processes, getRpcProcessInfo(proc))
 	})
 

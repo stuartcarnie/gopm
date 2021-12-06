@@ -2,7 +2,6 @@ package process
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/stuartcarnie/gopm/config"
 )
@@ -38,19 +37,11 @@ func newProcessSorter() *processSorter {
 func (p *processSorter) initDepends(processes []*config.Program) {
 	// sort by dependsOn
 	for _, proc := range processes {
-		if len(proc.DependsOn) > 0 {
-			dependsOn := proc.DependsOn
-			procName := proc.Name
-			for _, dependsOnProc := range dependsOn {
-				dependsOnProc = strings.TrimSpace(dependsOnProc)
-				if dependsOnProc != "" {
-					if _, ok := p.dependsOnGraph[procName]; !ok {
-						p.dependsOnGraph[procName] = make([]string, 0)
-					}
-					p.dependsOnGraph[procName] = append(p.dependsOnGraph[procName], dependsOnProc)
-
-				}
-			}
+		if len(proc.DependsOn) == 0 {
+			continue
+		}
+		for _, dependsOnProc := range proc.DependsOn {
+			p.dependsOnGraph[proc.Name] = append(p.dependsOnGraph[proc.Name], dependsOnProc)
 		}
 	}
 }

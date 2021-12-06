@@ -114,28 +114,6 @@ func (pm *Manager) ForEachProcess(procFunc func(p *Process)) {
 	}
 }
 
-// AsyncForEachProcess handle each process in async mode
-// Args:
-// - procFunc, the function to handle the process
-// - done, signal the process is completed
-// Returns: number of total processes
-func (pm *Manager) AsyncForEachProcess(procFunc func(p *Process), done chan *Process) int {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
-
-	procs := pm.getAllProcess()
-
-	for _, proc := range procs {
-		go forOneProcess(proc, procFunc, done)
-	}
-	return len(procs)
-}
-
-func forOneProcess(proc *Process, action func(p *Process), done chan *Process) {
-	action(proc)
-	done <- proc
-}
-
 func (pm *Manager) getAllProcess() []*Process {
 	tmpProcs := make([]*Process, 0)
 	for _, proc := range pm.procs {

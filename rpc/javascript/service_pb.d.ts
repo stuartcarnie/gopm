@@ -60,11 +60,8 @@ export class ProcessInfo extends jspb.Message {
   getNow(): number;
   setNow(value: number): ProcessInfo;
 
-  getState(): ProcessState;
-  setState(value: ProcessState): ProcessInfo;
-
-  getStateName(): string;
-  setStateName(value: string): ProcessInfo;
+  getState(): string;
+  setState(value: string): ProcessInfo;
 
   getSpawnErr(): string;
   setSpawnErr(value: string): ProcessInfo;
@@ -100,8 +97,7 @@ export namespace ProcessInfo {
     start: number,
     stop: number,
     now: number,
-    state: ProcessState,
-    stateName: string,
+    state: string,
     spawnErr: string,
     exitStatus: number,
     logfile: string,
@@ -291,14 +287,4 @@ export enum ProcessSignal {
   TERM = 6,
   STOP = 7,
   CONT = 8,
-}
-export enum ProcessState { 
-  STOPPED = 0,
-  STARTING = 10,
-  RUNNING = 20,
-  BACKOFF = 30,
-  STOPPING = 40,
-  EXITED = 100,
-  FATAL = 200,
-  UNKNOWN = 1000,
 }

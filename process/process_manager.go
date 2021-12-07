@@ -17,6 +17,11 @@ var ErrNotFound = errors.New("no matching process found")
 
 // Manager manage all the process in the supervisor
 type Manager struct {
+	// Note: this should really be guarded by lock because
+	// Update can be called concurrently, but that's an old
+	// issue and we're going to rip all this out anyway.
+	config *config.Config
+
 	procs map[string]*process
 	lock  sync.Mutex
 }
@@ -28,8 +33,26 @@ func NewManager() *Manager {
 	}
 }
 
-// CreateOrUpdateProcess creates a new process and adds it to the manager or updates an existing process.
-func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Program) *process {
+// Update updates the configuration, creating, removing and restarting
+// processes as appropriate.
+func (pm *Manager) Update(newConfig *config.Config) {
+	if pm.config != nil {
+		for name := range pm.config.Programs {
+			if newConfig.Programs[name] == nil {
+				pm.removeProcess(name)
+			}
+		}
+	}
+	for _, p := range newConfig.Programs {
+		// TODO remove the redundant supervisorID argument.
+		pm.createOrUpdateProcess("supervisor", p)
+	}
+	pm.config = newConfig
+	pm.startAutoStartPrograms()
+}
+
+// createOrUpdateProcess creates a new process and adds it to the manager or updates an existing process.
+func (pm *Manager) createOrUpdateProcess(supervisorID string, after *config.Program) *process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
@@ -46,9 +69,9 @@ func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Prog
 	return proc
 }
 
-// RemoveProcess remove the process from the manager and stops it, if it was running.
+// removeProcess removes the process from the manager and stops it, if it was running.
 // Returns the removed process.
-func (pm *Manager) RemoveProcess(name string) *process {
+func (pm *Manager) removeProcess(name string) *process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	proc := pm.procs[name]
@@ -61,9 +84,9 @@ func (pm *Manager) RemoveProcess(name string) *process {
 	return proc
 }
 
-// StartAutoStartPrograms start all the program if its autostart is true.
+// startAutoStartPrograms start all the programs when their autostart flag is true.
 // TODO this should be done by the Process itself.
-func (pm *Manager) StartAutoStartPrograms() {
+func (pm *Manager) startAutoStartPrograms() {
 	pm.forEachProcess(func(proc *process) {
 		if proc.config.AutoStart {
 			proc.start(false)

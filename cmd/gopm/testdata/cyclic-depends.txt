@@ -1,0 +1,30 @@
+# Test that a configuration with cyclic dependencies is an error.
+
+# Start it up. It should fail immediately with an error.
+gopm -c gopmconfig --quit-delay 0 &
+wait
+stderr 'Error loading configuration  	error:cyclic dependency involving ("b" and "a")|("a" and "b")'
+
+-- gopmconfig/config.cue --
+package config
+
+grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+programs: {
+	a: {
+		command: " "
+		depends_on: ["b", "c"]
+	}
+	b: {
+		command: " "
+		depends_on: ["d", "a"]
+	}
+	c: {
+		command: " "
+	}
+	d: {
+		command: " "
+	}
+}

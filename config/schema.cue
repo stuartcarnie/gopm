@@ -87,12 +87,6 @@ import (
 	// user holds the username to run the process as.
 	user?: string
 
-	// priority holds the startup-order priority of the process.
-	// In the absence of a "depends_on" relationship, this
-	// determines the startup and shutdown order of processes.
-	// Higher priority programs will start up later and shut down earlier.
-	priority?:      int
-
 	// restart_pause holds the length of time to wait after a program
 	// has exited before auto-restarting it.
 	restart_pause?: int
@@ -158,7 +152,6 @@ import (
 		directory: *runtime.cwd | _
 		shell: *"/bin/sh" | _
 		exit_codes: *[0, 2] | _
-		priority: *999 | _
 		start_retries: *3 | _
 		start_seconds: *"1s" | _
 		auto_start: *true | _

@@ -169,17 +169,11 @@ func (p *process) updateConfig(config *config.Program) {
 // add this process to crontab
 func (p *process) addToCron() {
 	cfg := p.config
-	if cfg.Cron == "" {
+	if cfg.Cron.Schedule == nil {
 		return
 	}
-	schedule, err := cronParser.Parse(cfg.Cron)
-	if err != nil {
-		p.log.Error("Invalid cron entry", zap.String("cron", cfg.Cron), zap.Error(err))
-		return
-	}
-
-	p.log.Info("Scheduling process with cron", zap.String("cron", cfg.Cron))
-	id := scheduler.Schedule(schedule, cron.FuncJob(func() {
+	p.log.Info("Scheduling process with cron", zap.String("cron", cfg.Cron.String))
+	id := scheduler.Schedule(cfg.Cron.Schedule, cron.FuncJob(func() {
 		p.log.Debug("Running scheduled process")
 		if !p.isRunning() {
 			p.start(false)
@@ -190,16 +184,11 @@ func (p *process) addToCron() {
 }
 
 func (p *process) removeFromCron() {
-	if p.config != nil {
-		s := p.config.Cron
-		if len(s) == 0 {
-			return
-		}
+	if p.config.Cron.Schedule != nil {
+		p.log.Info("Removing process from cron schedule")
+		scheduler.Remove(p.cronID)
+		p.cronID = 0
 	}
-
-	p.log.Info("Removing process from cron schedule")
-	scheduler.Remove(p.cronID)
-	p.cronID = 0
 }
 
 // start start the process

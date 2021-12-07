@@ -21,7 +21,6 @@ grpc_server: {
 }
 programs: sleeper: {
 	command: "echo started > started.txt"
-	directory: "progdir"
 }
 
 -- config2.cue --

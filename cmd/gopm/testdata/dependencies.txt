@@ -1,5 +1,3 @@
-skip 'dependencies are currently broken'
-
 # Test that programs are started in reverse-dependency order.
 gopm -c gopmconfig --quit-delay 0 &
 waitfile a.txt
@@ -44,4 +42,4 @@ programs: {
 	}
 }
 -- expect-a.txt --
-a [b [c d] d] [c d]]
+[ a [ b [ c d ] d ] [ c d ] ]

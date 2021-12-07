@@ -42,10 +42,9 @@ func ToSignal(signalName string) (os.Signal, error) {
 //    sigChildren - true if the signal needs to be sent to the children also
 //
 func Kill(process *os.Process, sig os.Signal, sigChildren bool) error {
-	localSig := sig.(syscall.Signal)
 	pid := process.Pid
 	if sigChildren {
 		pid = -pid
 	}
-	return syscall.Kill(pid, localSig)
+	return syscall.Kill(pid, sig.(syscall.Signal))
 }

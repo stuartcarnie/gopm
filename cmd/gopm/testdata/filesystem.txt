@@ -26,7 +26,6 @@ grpc_server: {
 	address: "gopm.socket"
 }
 programs: sleeper: {
-	directory: "progdir"
 	command: """
 		echo started > started.txt
 
@@ -58,7 +57,6 @@ grpc_server: {
 	address: "gopm.socket"
 }
 programs: sleeper: {
-	directory: "progdir"
 	command: """
 		echo started > started.txt
 

@@ -63,7 +63,7 @@ func (s *Supervisor) Reload() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.createFiles(newConfig)
-	s.procMgr.Update(newConfig)
+	s.procMgr.Update(context.TODO(), newConfig)
 	s.startHTTPServer(newConfig)
 	s.startGrpcServer(newConfig)
 	s.config = newConfig

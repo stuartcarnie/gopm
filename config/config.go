@@ -14,6 +14,8 @@ import (
 	"cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/load"
 	"github.com/robfig/cron/v3"
+
+	"github.com/stuartcarnie/gopm/signals"
 )
 
 // Load loads the configuration at the given directory and returns it.
@@ -113,30 +115,32 @@ func Load(configDir string, root string) (*Config, error) {
 	return &cfg, nil
 }
 
+// verifiyDependencies verifies the program depends_on fields
+// and also populates the TopoSortedPrograms field.
 func (cfg *Config) verifyDependencies() error {
-	for _, p := range cfg.Programs {
-		if err := cfg.checkCycle(p, make(map[*Program]bool)); err != nil {
-			return err
-		}
+	if err := cfg.checkDepsExist(); err != nil {
+		return err
 	}
+	sorted, cycles := topoSort(cfg.Programs)
+	if len(cycles) > 0 {
+		return fmt.Errorf("cycles detected in program dependencies: %v", dumpCycles(cycles))
+	}
+	sortedProgs := make([]*Program, len(sorted))
+	for i := range sorted {
+		sortedProgs[i] = cfg.Programs[sorted[i]]
+	}
+	cfg.TopoSortedPrograms = sortedProgs
 	return nil
 }
 
-func (cfg *Config) checkCycle(p *Program, visiting map[*Program]bool) error {
-	visiting[p] = true
-	for _, dep := range p.DependsOn {
-		p1 := cfg.Programs[dep]
-		if p1 == nil {
-			return fmt.Errorf("program %q has dependency on non-existent program %q", p.Name, dep)
-		}
-		if visiting[p1] {
-			return fmt.Errorf("cyclic dependency involving %q and %q", p.Name, p1.Name)
-		}
-		if err := cfg.checkCycle(p1, visiting); err != nil {
-			return err
+func (cfg *Config) checkDepsExist() error {
+	for _, p := range cfg.Programs {
+		for _, dep := range p.DependsOn {
+			if cfg.Programs[dep] == nil {
+				return fmt.Errorf("program %q has dependency on non-existent program %q", p.Name, dep)
+			}
 		}
 	}
-	visiting[p] = false
 	return nil
 }
 
@@ -190,6 +194,11 @@ type Config struct {
 	GRPCServer  *Server             `json:"grpc_server"`
 	Programs    map[string]*Program `json:"programs"`
 	FileSystem  map[string]*File    `json:"filesystem"`
+
+	// TopoSortedPrograms holds all the programs in topologically
+	// sorted order (children before parents). It's populated
+	// after reading the configuration.
+	TopoSortedPrograms []*Program `json:"-"`
 }
 
 type File struct {
@@ -220,7 +229,7 @@ type Program struct {
 	AutoRestart             *bool             `json:"auto_restart,omitempty"`
 	RestartDirectoryMonitor string            `json:"restart_directory_monitor"`
 	RestartFilePattern      string            `json:"restart_file_pattern"`
-	StopSignals             []string          `json:"stop_signals"`
+	StopSignals             []Signal          `json:"stop_signals"`
 	StopWaitSeconds         Duration          `json:"stop_wait_seconds"`
 	StopAsGroup             bool              `json:"stop_as_group"`
 	KillAsGroup             bool              `json:"kill_as_group"`
@@ -275,5 +284,24 @@ func (sched *CronSchedule) UnmarshalJSON(data []byte) error {
 	}
 	sched.Schedule = schedule
 	sched.String = s
+	return nil
+}
+
+type Signal struct {
+	S      os.Signal
+	String string
+}
+
+func (s *Signal) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	sig, err := signals.ToSignal(str)
+	if err != nil {
+		return err
+	}
+	s.S = sig
+	s.String = str
 	return nil
 }

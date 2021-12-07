@@ -13,6 +13,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/load"
+	"github.com/robfig/cron/v3"
 )
 
 // Load loads the configuration at the given directory and returns it.
@@ -48,6 +49,13 @@ func Load(configDir string, root string) (*Config, error) {
 	insts := load.Instances([]string{"."}, &load.Config{
 		Dir: filepath.Join(wd, configDir),
 	})
+	for _, inst := range insts {
+		if err := inst.Err; err != nil {
+			// TODO print to log file instead of directly to stderr.
+			errors.Print(os.Stderr, err, nil)
+			return nil, err
+		}
+	}
 	vals, err := ctx.BuildInstances(insts)
 	if err != nil {
 		return nil, fmt.Errorf("cannot build instances: %v", err)
@@ -98,7 +106,38 @@ func Load(configDir string, root string) (*Config, error) {
 	if err := val.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("cannot decode into config: %v", err)
 	}
+
+	if err := cfg.verifyDependencies(); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+func (cfg *Config) verifyDependencies() error {
+	for _, p := range cfg.Programs {
+		if err := cfg.checkCycle(p, make(map[*Program]bool)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cfg *Config) checkCycle(p *Program, visiting map[*Program]bool) error {
+	visiting[p] = true
+	for _, dep := range p.DependsOn {
+		p1 := cfg.Programs[dep]
+		if p1 == nil {
+			return fmt.Errorf("program %q has dependency on non-existent program %q", p.Name, dep)
+		}
+		if visiting[p1] {
+			return fmt.Errorf("cyclic dependency involving %q and %q", p.Name, p1.Name)
+		}
+		if err := cfg.checkCycle(p1, visiting); err != nil {
+			return err
+		}
+	}
+	visiting[p] = false
+	return nil
 }
 
 type localSchema struct {
@@ -173,11 +212,10 @@ type Program struct {
 	Environment             map[string]string `json:"environment"`
 	User                    string            `json:"user"`
 	ExitCodes               []int             `json:"exit_codes"`
-	Priority                int               `json:"priority"`
 	RestartPause            Duration          `json:"restart_pause"`
 	StartRetries            int               `json:"start_retries"`
 	StartSeconds            Duration          `json:"start_seconds"`
-	Cron                    string            `json:"cron"`
+	Cron                    CronSchedule      `json:"cron,omitempty"`
 	AutoStart               bool              `json:"auto_start"`
 	AutoRestart             *bool             `json:"auto_restart,omitempty"`
 	RestartDirectoryMonitor string            `json:"restart_directory_monitor"`
@@ -212,5 +250,30 @@ func (d *Duration) UnmarshalJSON(bytes []byte) error {
 		return err
 	}
 	d.D = v
+	return nil
+}
+
+type CronSchedule struct {
+	Schedule cron.Schedule
+	String   string
+}
+
+func (sched *CronSchedule) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	if s == "" {
+		sched.Schedule = nil
+		sched.String = ""
+		return nil
+	}
+	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	schedule, err := parser.Parse(s)
+	if err != nil {
+		return fmt.Errorf("cannot parse cron entry: %v", err)
+	}
+	sched.Schedule = schedule
+	sched.String = s
 	return nil
 }

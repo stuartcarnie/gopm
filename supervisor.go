@@ -63,10 +63,9 @@ func (s *Supervisor) Reload() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.createFiles(newConfig)
-	s.createPrograms(newConfig)
+	s.procMgr.Update(newConfig)
 	s.startHTTPServer(newConfig)
 	s.startGrpcServer(newConfig)
-	s.startAutoStartPrograms()
 	s.config = newConfig
 
 	return nil
@@ -104,22 +103,6 @@ func (s *Supervisor) createFiles(newConfig *config.Config) {
 		}
 	}
 	s.fileSystem = byPath
-}
-
-func (s *Supervisor) createPrograms(newConfig *config.Config) {
-	for name := range s.config.Programs {
-		if newConfig.Programs[name] == nil {
-			s.procMgr.RemoveProcess(name)
-		}
-	}
-	for _, p := range newConfig.Programs {
-		// TODO remove the redundant supervisorID argument.
-		s.procMgr.CreateOrUpdateProcess("supervisor", p)
-	}
-}
-
-func (s *Supervisor) startAutoStartPrograms() {
-	s.procMgr.StartAutoStartPrograms()
 }
 
 func (s *Supervisor) startHTTPServer(newConfig *config.Config) {

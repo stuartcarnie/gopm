@@ -83,7 +83,14 @@ func (pm *Manager) AllProcessInfo() []*ProcessInfo {
 
 // RestartProcesses restarts all matching processes.
 func (pm *Manager) RestartProcesses(name string, labels map[string]string) error {
-	return fmt.Errorf("unimplemented")
+	procs := pm.send(processRequest{
+		kind: reqRestart,
+	}, name, labels)
+	if len(procs) == 0 {
+		return ErrNotFound
+	}
+	<-pm.notifier.watch(nil, procs, isReady)
+	return nil
 }
 
 // SignalProcesses sends the given signal to all matching processes.
@@ -101,9 +108,9 @@ func (pm *Manager) StartAllProcesses() {
 
 // StopProcesses starts all matching processes.
 func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
-	procs := pm.sendAll(processRequest{
+	procs := pm.send(processRequest{
 		kind: reqStart,
-	})
+	}, name, labels)
 	if len(procs) == 0 {
 		return ErrNotFound
 	}
@@ -121,9 +128,9 @@ func (pm *Manager) StopAllProcesses() {
 
 // StopProcesses stops all matching processes.
 func (pm *Manager) StopProcesses(name string, labels map[string]string) error {
-	procs := pm.sendAll(processRequest{
+	procs := pm.send(processRequest{
 		kind: reqStop,
-	})
+	}, name, labels)
 	if len(procs) == 0 {
 		return ErrNotFound
 	}
@@ -223,5 +230,5 @@ func matchProgram(p *config.Program, name string, labels map[string]string) bool
 
 // match reports whether the p matches the given name and labels.
 func (pm *Manager) match(p *process, name string, labels map[string]string) bool {
-	return matchProgram(pm.config.Programs[name], name, labels)
+	return matchProgram(pm.config.Programs[p.name], name, labels)
 }

@@ -4,11 +4,21 @@
 mkdir progdir
 gopm -c gopmconfig --quit-delay 0 &
 waitfile gopm.socket
-waitfile progdir/started.txt
+waitfile progdir/started1.txt
+waitfile progdir/started2.txt
 gopmctl --addr unix:gopm.socket stop sleeper
-waitfile progdir/intr.txt
+
+# The sleeper process should be interrupted.
+waitfile progdir/intr1.txt
+
+# The other process should not.
+! waitfile progdir/intr2.txt
+
 gopmctl --addr unix:gopm.socket shutdown
 wait
+
+# The other process should have shut down cleanly in the end.
+exists progdir/intr2.txt
 
 -- gopmconfig/config.cue --
 package config
@@ -19,7 +29,13 @@ grpc_server: {
 }
 programs: sleeper: {
 	command: """
-		interrupt-notify started.txt intr.txt
+		interrupt-notify started1.txt intr1.txt
+		"""
+	directory: "progdir"
+}
+programs: unaffected: {
+	command: """
+		interrupt-notify started2.txt intr2.txt
 		"""
 	directory: "progdir"
 }

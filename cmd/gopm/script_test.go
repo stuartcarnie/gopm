@@ -58,7 +58,7 @@ func interruptNotifyMain() int {
 			return 1
 		}
 	case <-time.After(5 * time.Second):
-		log.Print("timed out waiting for interrupt")
+		log.Print("interrupt-notify: timed out waiting for interrupt")
 		return 1
 	}
 	return 0

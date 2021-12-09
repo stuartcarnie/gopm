@@ -211,7 +211,7 @@ func (p *process) run() {
 				// We've already done all we can to kill it, so just throw it away.
 				p.cmd = nil
 				p.cmdWait = nil
-				// TODO log this
+				p.zlog.Error("killed process but it failed to exit")
 				p.state = Stopped
 				break
 			}
@@ -230,7 +230,6 @@ func (p *process) run() {
 		if p.state != Starting && p.state != Backoff {
 			p.stopDepsWatch()
 		}
-		p.zlog.Info("select", zap.Stringer("state", p.state))
 		select {
 		case req, ok := <-p.req:
 			if !ok {
@@ -246,6 +245,7 @@ func (p *process) run() {
 			p.cmd = nil
 			p.exitStatus = exit
 			p.startTime = time.Time{}
+			p.killTime = time.Time{}
 			p.stopTime = time.Now()
 			if p.state == Stopping {
 				// TODO Should we log any unexpected exit status here?
@@ -298,6 +298,7 @@ func (p *process) signal(sig config.Signal) error {
 	if p.cmd == nil || p.cmd.Process == nil {
 		return fmt.Errorf("process not started")
 	}
+	p.zlog.Info("killing process", zap.String("signal", sig.String))
 	return signals.Kill(p.cmd.Process, sig.S, true)
 }
 

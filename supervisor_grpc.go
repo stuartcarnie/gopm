@@ -3,7 +3,6 @@ package gopm
 import (
 	"context"
 	"errors"
-	"os"
 	"sort"
 	"time"
 
@@ -59,13 +58,12 @@ func (s *Supervisor) StopAllProcesses(_ context.Context, req *rpc.StartStopAllRe
 }
 
 func (s *Supervisor) Shutdown(context.Context, *empty.Empty) (*empty.Empty, error) {
-	// TODO(sgc): This is not right
-	s.procMgr.StopAllProcesses()
-	go func() {
-		time.Sleep(1 * time.Second)
-		os.Exit(0)
-	}()
-
+	s.mu.Lock()
+	if s.done != nil {
+		close(s.done)
+		s.done = nil
+	}
+	s.mu.Unlock()
 	return &empty.Empty{}, nil
 }
 

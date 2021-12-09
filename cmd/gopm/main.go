@@ -52,23 +52,32 @@ func runServer() error {
 
 FOR:
 	for {
-		sig := <-sigs
-		zap.L().Info("Received signal to stop all processes and exit", zap.Stringer("signal", sig))
-		if rootOpt.QuitDelay == 0 {
-			break
+		select {
+		case sig := <-sigs:
+			if sig == syscall.SIGTERM || rootOpt.QuitDelay == 0 {
+				break FOR
+			}
+			zap.L().Info("Received signal to stop all processes and exit")
+		case <-s.Done():
+			zap.L().Info("Shutdown request received")
+			break FOR
 		}
 
-		zap.L().Info("Press CTRL-C again to quit", zap.Stringer("signal", sig))
+		zap.L().Info("Press CTRL-C again to quit")
 		select {
-		case <-sigs:
+		case sig := <-sigs:
+			if sig == syscall.SIGTERM || rootOpt.QuitDelay == 0 {
+				break FOR
+			}
 			break FOR
 		case <-time.After(rootOpt.QuitDelay):
-			zap.L().Info("Not quitting", zap.Stringer("signal", sig))
+			zap.L().Info("Not quitting")
 		}
 	}
 
-	s.GetManager().StopAllProcesses()
-
+	if err := s.Close(); err != nil {
+		zap.L().Error("error shutting down", zap.Error(err))
+	}
 	return nil
 }
 
@@ -92,7 +101,7 @@ func Main() int {
 	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration file")
 	flags := rootCmd.Flags()
 	flags.StringVar(&rootOpt.EnvFile, "env-file", "", "An optional environment file")
-	flags.DurationVar(&rootOpt.QuitDelay, "quit-delay", time.Second, "Time to wait for second CTRL-C before quitting. 0 to quit immediately.")
+	flags.DurationVar(&rootOpt.QuitDelay, "quit-delay", 2*time.Second, "Time to wait for second CTRL-C before quitting. 0 to quit immediately.")
 	_ = rootCmd.MarkFlagRequired("config")
 
 	if err := rootCmd.Execute(); err != nil {

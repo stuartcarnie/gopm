@@ -33,6 +33,7 @@ type Supervisor struct {
 	fileSystem map[string]*config.File
 	httpServer *http.Server
 	grpc       *grpc.Server
+	done       chan struct{}
 }
 
 // NewSupervisor create a Supervisor object with supervisor configuration file
@@ -41,7 +42,35 @@ func NewSupervisor(configFile string) *Supervisor {
 		configFile: configFile,
 		procMgr:    process.NewManager(),
 		config:     new(config.Config),
+		done:       make(chan struct{}),
 	}
+}
+
+// Close closes the server, stopping all processes gracefully.
+func (s *Supervisor) Close() error {
+	// Updating with the empty configuration should gracefully stop all processes
+	// in the correct order and stop and tear down any current network
+	// requests.
+	if err := s.procMgr.Update(context.TODO(), &config.Config{}); err != nil {
+		zap.L().Info("cannot terminate processes", zap.Error(err))
+	}
+	s.mu.Lock()
+	if s.grpc != nil {
+		s.grpc.GracefulStop()
+		s.grpc = nil
+	}
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(context.Background()); err != nil {
+			zap.L().Info("cannot terminate HTTP server", zap.Error(err))
+		}
+		s.httpServer = nil
+	}
+	return nil
+}
+
+// Done returns a channel that's closed when the supervisor gets a shutdown request.
+func (s *Supervisor) Done() <-chan struct{} {
+	return s.done
 }
 
 // Reload reloads the supervisor configuration

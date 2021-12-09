@@ -28,6 +28,16 @@ func topoSort(programs map[string]*Program) (sorted []string, cycles [][]string)
 	return v.sorted, cycles
 }
 
+// dependsOn reports whether p depends on any member of others.
+func (cfg *Config) dependsOn(p *Program, others map[*Program]bool) bool {
+	for _, dep := range p.DependsOn {
+		if others[cfg.Programs[dep]] || cfg.dependsOn(cfg.Programs[dep], others) {
+			return true
+		}
+	}
+	return false
+}
+
 type visitor struct {
 	programs map[string]*Program
 	done     map[string]bool

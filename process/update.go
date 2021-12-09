@@ -123,42 +123,44 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 	// Note that each process will independently wait
 	// for its own dependencies to become ready before
 	// starting.
-	for _, newp := range newConfig.TopoSortedPrograms {
-		name := newp.Name
-		if !changed[name] && pm.processes[name] != nil {
-			continue
-		}
-		deps := make([]*process, len(newp.DependsOn))
-		for i, dep := range newp.DependsOn {
-			deps[i] = pm.processes[dep]
-			if deps[i] == nil {
-				panic("topological order issue?")
+	for _, newps := range newConfig.TopoSortedPrograms {
+		for _, newp := range newps {
+			name := newp.Name
+			if !changed[name] && pm.processes[name] != nil {
+				continue
 			}
-		}
-		oldp := pm.processes[name]
-		if oldp == nil {
-			// It's a new process, so create it.
-			initialState := Stopped
-			if newp.AutoStart {
-				initialState = Starting
+			deps := make([]*process, len(newp.DependsOn))
+			for i, dep := range newp.DependsOn {
+				deps[i] = pm.processes[dep]
+				if deps[i] == nil {
+					panic("topological order issue?")
+				}
 			}
-			newp := &process{
-				name:      name,
-				notifier:  pm.notifier,
-				req:       make(chan processRequest),
-				config:    newp,
-				state:     initialState,
-				dependsOn: deps,
+			oldp := pm.processes[name]
+			if oldp == nil {
+				// It's a new process, so create it.
+				initialState := Stopped
+				if newp.AutoStart {
+					initialState = Starting
+				}
+				newp := &process{
+					name:      name,
+					notifier:  pm.notifier,
+					req:       make(chan processRequest),
+					config:    newp,
+					state:     initialState,
+					dependsOn: deps,
+				}
+				pm.processes[name] = newp
+				go newp.run()
+				continue
 			}
-			pm.processes[name] = newp
-			go newp.run()
-			continue
-		}
-		// Update an existing process.
-		oldp.req <- processRequest{
-			kind:      reqUpdate,
-			newConfig: newp,
-			newDeps:   deps,
+			// Update an existing process.
+			oldp.req <- processRequest{
+				kind:      reqUpdate,
+				newConfig: newp,
+				newDeps:   deps,
+			}
 		}
 	}
 	pm.config = newConfig
@@ -186,28 +188,30 @@ func (pm *Manager) stopChangedProcesses(ctx context.Context, newConfig *config.C
 		walkChanged(pm.config, name, changed)
 	}
 	// In reverse topological order, stop each process that's marked to be stopped.
-	progs := pm.config.TopoSortedPrograms
-	waitFor := make([]*process, 0, len(progs))
-	for i := len(progs) - 1; i >= 0; i-- {
-		name := progs[i].Name
-		if !changed[name] {
-			continue
+	progCohorts := pm.config.TopoSortedPrograms
+	for i := len(progCohorts) - 1; i >= 0; i-- {
+		var waitFor []*process
+		for _, p := range progCohorts[i] {
+			name := p.Name
+			if !changed[name] {
+				continue
+			}
+			oldp := pm.processes[name]
+			if oldp == nil {
+				panic(fmt.Errorf("process %v not found", name))
+			}
+			oldp.req <- processRequest{
+				kind: reqStop,
+			}
+			waitFor = append(waitFor, oldp)
 		}
-		oldp := pm.processes[name]
-		if oldp == nil {
-			panic(fmt.Errorf("process %v not found", progs[i].Name))
+		select {
+		case <-pm.notifier.watch(ctx.Done(), waitFor, isStopped):
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
-		oldp.req <- processRequest{
-			kind: reqStop,
-		}
-		waitFor = append(waitFor, oldp)
 	}
-	select {
-	case <-pm.notifier.watch(ctx.Done(), waitFor, isStopped):
-		return changed, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+	return changed, nil
 }
 
 // walkChanged sets any entries in the changed map that correspond to

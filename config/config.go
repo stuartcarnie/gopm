@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -125,9 +126,34 @@ func (cfg *Config) verifyDependencies() error {
 	if len(cycles) > 0 {
 		return fmt.Errorf("cycles detected in program dependencies: %v", dumpCycles(cycles))
 	}
-	sortedProgs := make([]*Program, len(sorted))
-	for i := range sorted {
-		sortedProgs[i] = cfg.Programs[sorted[i]]
+	// This is a horrible O(>n^2) algorithm but n is gonna be very small.
+	// What's the name for what this is doing anyway?
+	var sortedProgs [][]*Program
+	for i := 0; i < len(sorted); i++ {
+		if sorted[i] == "" {
+			// It's already been taken.
+			continue
+		}
+		cohort := make([]*Program, 0, 1)
+		cohortSet := make(map[*Program]bool)
+		// Take all the programs that don't have dependencies on
+		// the current cohort.
+		for j := i; j < len(sorted); j++ {
+			if sorted[j] == "" {
+				continue
+			}
+			p := cfg.Programs[sorted[j]]
+			if !cfg.dependsOn(p, cohortSet) {
+				cohort = append(cohort, p)
+				cohortSet[p] = true
+				sorted[j] = ""
+			}
+		}
+		// Sort for consistency.
+		sort.Slice(cohort, func(i, j int) bool {
+			return cohort[i].Name < cohort[j].Name
+		})
+		sortedProgs = append(sortedProgs, cohort)
 	}
 	cfg.TopoSortedPrograms = sortedProgs
 	return nil
@@ -198,7 +224,11 @@ type Config struct {
 	// TopoSortedPrograms holds all the programs in topologically
 	// sorted order (children before parents). It's populated
 	// after reading the configuration.
-	TopoSortedPrograms []*Program `json:"-"`
+	// Each element in the slice a slice of independent programs:
+	// that is, all the programs in TopoSortedPrograms[i] must
+	// started before all the programs in TopoSortedPrograms[i+1]
+	// but there's no relationship between them.
+	TopoSortedPrograms [][]*Program `json:"-"`
 }
 
 type File struct {

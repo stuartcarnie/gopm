@@ -1,0 +1,52 @@
+gopm -c gopmconfig --quit-delay 0 &
+waitfile gopm.socket
+waitfile finished.txt
+
+cmp stuff.log expect-stuff.log
+cmp stuff.log.1 expect-stuff.log.1
+cmp stuff.log.2 expect-stuff.log.2
+cmp stuff.log.3 expect-stuff.log.3
+! exists stuff.log.4
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+
+programs: writer: {
+	command: """
+		# Note: sleep after each write so that the writes don't get
+		# amalgamated in the pipe from the process.
+		send() {
+			echo "$@"
+			sleep 0.1
+		}
+		send first line
+		send second line
+		send third line
+		send fourth line
+		send fifth line
+		send x 6		# this is the only line that fits within the log size.
+		send seventh line
+		send done > finished.txt
+		"""
+	logfile: "stuff.log"
+	logfile_backups: 3
+	logfile_max_bytes: 7,
+}
+-- expect-stuff.log --
+-- expect-stuff.log.1 --
+x 6
+seventh line
+-- expect-stuff.log.2 --
+fifth line
+-- expect-stuff.log.3 --
+fourth line
+-- expect-stuff.log.4 --
+third line

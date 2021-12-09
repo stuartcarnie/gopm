@@ -77,6 +77,7 @@ func (l *fileLogger) Write(p []byte) (int, error) {
 		if err := l.openFile(true); err != nil {
 			zap.L().Error("cannot open fresh log file", zap.Error(err))
 		}
+		l.fileSize = 0
 	}
 	return n, err
 }

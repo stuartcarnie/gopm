@@ -168,6 +168,7 @@ func (p *process) run() {
 		p.config.LogFileMaxBacklogBytes,
 		p.config.LogFileBackups,
 	)
+	defer p.logger.Close()
 	timer := time.NewTimer(time.Minute)
 	timer.Stop()
 	defer p.stopDepsWatch()

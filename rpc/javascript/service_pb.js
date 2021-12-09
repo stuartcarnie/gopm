@@ -558,8 +558,6 @@ proto.gopm.rpc.ProcessInfo.prototype.toObject = function(opt_includeInstance) {
 proto.gopm.rpc.ProcessInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    group: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    description: jspb.Message.getFieldWithDefault(msg, 3, ""),
     start: jspb.Message.getFieldWithDefault(msg, 4, 0),
     stop: jspb.Message.getFieldWithDefault(msg, 5, 0),
     now: jspb.Message.getFieldWithDefault(msg, 6, 0),
@@ -607,14 +605,6 @@ proto.gopm.rpc.ProcessInfo.deserializeBinaryFromReader = function(msg, reader) {
     case 1:
       var value = /** @type {string} */ (reader.readString());
       msg.setName(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setGroup(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setDescription(value);
       break;
     case 4:
       var value = /** @type {number} */ (reader.readInt64());
@@ -681,20 +671,6 @@ proto.gopm.rpc.ProcessInfo.serializeBinaryToWriter = function(message, writer) {
   if (f.length > 0) {
     writer.writeString(
       1,
-      f
-    );
-  }
-  f = message.getGroup();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = message.getDescription();
-  if (f.length > 0) {
-    writer.writeString(
-      3,
       f
     );
   }
@@ -772,42 +748,6 @@ proto.gopm.rpc.ProcessInfo.prototype.getName = function() {
  */
 proto.gopm.rpc.ProcessInfo.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional string group = 2;
- * @return {string}
- */
-proto.gopm.rpc.ProcessInfo.prototype.getGroup = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.gopm.rpc.ProcessInfo} returns this
- */
-proto.gopm.rpc.ProcessInfo.prototype.setGroup = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional string description = 3;
- * @return {string}
- */
-proto.gopm.rpc.ProcessInfo.prototype.getDescription = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.gopm.rpc.ProcessInfo} returns this
- */
-proto.gopm.rpc.ProcessInfo.prototype.setDescription = function(value) {
-  return jspb.Message.setProto3StringField(this, 3, value);
 };
 
 

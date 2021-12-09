@@ -303,12 +303,9 @@ func (p *process) isExpectedExit(err error) bool {
 		// if it's not in ExitCodes?
 		return true
 	}
-	var exitError *exec.ExitError
-	if !errors.As(err, &exitError) {
-		return false
-	}
+	ecode := exitCode(err)
 	for _, code := range p.config.ExitCodes {
-		if code == exitError.ExitCode() {
+		if code == ecode {
 			return true
 		}
 	}
@@ -391,8 +388,25 @@ func (p *process) handleRequest(req processRequest) {
 		p.setNeedsRestart(req.kind == reqRestart)
 	case reqLogger:
 		req.loggerReply <- p.logger
+	case reqInfo:
+		req.infoReply <- p.info()
 	default:
 		panic(fmt.Errorf("unknown process request received: %v", req.kind))
+	}
+}
+
+func (p *process) info() *ProcessInfo {
+	pid := 0
+	if p.cmd != nil {
+		pid = p.cmd.Process.Pid
+	}
+	return &ProcessInfo{
+		Name:       p.name,
+		Start:      p.startTime,
+		Stop:       p.stopTime,
+		ExitStatus: exitCode(p.exitStatus),
+		Logfile:    p.config.LogFile,
+		Pid:        pid,
 	}
 }
 
@@ -407,4 +421,15 @@ func (p *process) handleUpdate(newConfig *config.Program, deps []*process) {
 	p.exitStatus = nil
 	p.startCount = 0
 	p.depsRunning = false
+}
+
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitError *exec.ExitError
+	if !errors.As(err, &exitError) {
+		return -1
+	}
+	return exitError.ExitCode()
 }

@@ -54,19 +54,18 @@ func NewManager() *Manager {
 }
 
 type ProcessInfo struct {
-	Name        string
-	Description string
-	Start       time.Time
-	Stop        time.Time
-	State       State
-	ExitStatus  int
-	Logfile     string
-	Pid         int
+	Name  string
+	Start time.Time
+	Stop  time.Time
+	State State
+	// TODO make this an error instead?
+	ExitStatus int
+	Logfile    string
+	Pid        int
 }
 
 // AllProcessInfo returns information on all the processes.
 func (pm *Manager) AllProcessInfo() []*ProcessInfo {
-	// TODO guard against shutdown.
 	reply := make(chan *ProcessInfo)
 	n := len(pm.sendAll(processRequest{
 		kind:      reqInfo,

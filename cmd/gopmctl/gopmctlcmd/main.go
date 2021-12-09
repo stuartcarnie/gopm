@@ -3,7 +3,6 @@ package gopmctlcmd
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -101,34 +100,11 @@ func (ctl *Control) printProcessInfo(res *rpc.ProcessInfoResponse, processes map
 		}
 	}
 	for _, pinfo := range res.Processes {
-		if ctl.inProcessMap(pinfo, processes) {
-			processName := pinfo.GetFullName()
-			_, _ = fmt.Fprintln(tw, strings.Join([]string{processName, state(pinfo.State).String(), pinfo.Description}, "\t"))
+		if processes == nil || processes[pinfo.Name] {
+			_, _ = fmt.Fprintf(tw, "%s\t%v\n", pinfo.Name, state(pinfo.State))
 		}
 	}
 	tw.Flush()
-}
-
-func (ctl *Control) inProcessMap(procInfo *rpc.ProcessInfo, processesMap map[string]bool) bool {
-	if len(processesMap) <= 0 {
-		return true
-	}
-	for procName := range processesMap {
-		if procName == procInfo.Name || procName == procInfo.GetFullName() {
-			return true
-		}
-
-		// check the wildcard '*'
-		pos := strings.Index(procName, ":")
-		if pos != -1 {
-			groupName := procName[0:pos]
-			programName := procName[pos+1:]
-			if programName == "*" && groupName == procInfo.Group {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 type processResourceUsage struct {
@@ -139,14 +115,13 @@ type processResourceUsage struct {
 func (ctl *Control) printTop(processes []*processResourceUsage) {
 	tw := tabwriter.NewWriter(os.Stdout, 10, 4, 5, ' ', 0)
 	for _, p := range processes {
-		_, _ = fmt.Fprintln(tw, strings.Join([]string{
-			p.GetFullName(),
-			strconv.Itoa(int(p.Pid)),
-			fmt.Sprintf("%.1f%%", p.Usage.CPU),
-			fmt.Sprintf("%s (%.1f%%)", p.Usage.HumanResident(), p.Usage.Memory),
-		},
-			"\t",
-		))
+		fmt.Fprintf(tw, "%s\t%d\t%.1f%%\t%s (%.1f%%)\n",
+			p.Name,
+			p.Pid,
+			p.Usage.CPU,
+			p.Usage.HumanResident(),
+			p.Usage.Memory,
+		)
 	}
 	tw.Flush()
 }

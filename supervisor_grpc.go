@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -127,21 +128,22 @@ func (s *Supervisor) SignalAllProcesses(_ context.Context, req *rpc.SignalProces
 
 func (s *Supervisor) allProcesses() *rpc.ProcessInfoResponse {
 	infos := s.procMgr.AllProcessInfo()
-	rpcInfos := make(rpc.ProcessInfos, len(infos))
+	rpcInfos := make([]*rpc.ProcessInfo, len(infos))
 	for i, info := range infos {
 		rpcInfos[i] = &rpc.ProcessInfo{
-			Name:        info.Name,
-			Description: info.Description,
-			Start:       info.Start.Unix(),
-			Stop:        info.Stop.Unix(),
-			Now:         time.Now().Unix(),
-			State:       info.State.String(),
-			ExitStatus:  int64(info.ExitStatus),
-			Logfile:     info.Logfile,
-			Pid:         int64(info.Pid),
+			Name:       info.Name,
+			Start:      info.Start.Unix(),
+			Stop:       info.Stop.Unix(),
+			Now:        time.Now().Unix(),
+			State:      info.State.String(),
+			ExitStatus: int64(info.ExitStatus),
+			Logfile:    info.Logfile,
+			Pid:        int64(info.Pid),
 		}
 	}
-	rpcInfos.SortByName()
+	sort.Slice(rpcInfos, func(i, j int) bool {
+		return rpcInfos[i].Name < rpcInfos[j].Name
+	})
 	return &rpc.ProcessInfoResponse{
 		Processes: rpcInfos,
 	}

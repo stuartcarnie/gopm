@@ -45,12 +45,6 @@ export class ProcessInfo extends jspb.Message {
   getName(): string;
   setName(value: string): ProcessInfo;
 
-  getGroup(): string;
-  setGroup(value: string): ProcessInfo;
-
-  getDescription(): string;
-  setDescription(value: string): ProcessInfo;
-
   getStart(): number;
   setStart(value: number): ProcessInfo;
 
@@ -86,8 +80,6 @@ export class ProcessInfo extends jspb.Message {
 export namespace ProcessInfo {
   export type AsObject = {
     name: string,
-    group: string,
-    description: string,
     start: number,
     stop: number,
     now: number,

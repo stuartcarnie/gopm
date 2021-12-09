@@ -8,10 +8,12 @@ import (
 
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
+	"google.golang.org/grpc"
+
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/procusage"
 	"github.com/stuartcarnie/gopm/rpc"
-	"google.golang.org/grpc"
 )
 
 type Control struct {
@@ -87,21 +89,28 @@ func (ctl *Control) getServerURL() string {
 
 func (ctl *Control) printProcessInfo(res *rpc.ProcessInfoResponse, processes map[string]bool) {
 	tw := tabwriter.NewWriter(os.Stdout, 20, 4, 5, ' ', 0)
-	state := func(s string) aurora.Value {
-		switch strings.ToUpper(s) {
-		case "RUNNING":
-			return aurora.Green(s)
+	state := func(s string) string {
+		return s
+	}
+	if useColor() {
+		state = func(s string) string {
+			var av aurora.Value
+			switch strings.ToUpper(s) {
+			case "RUNNING":
+				av = aurora.Green(s)
 
-		case "BACKOFF", "FATAL":
-			return aurora.Red(s)
+			case "BACKOFF", "FATAL":
+				av = aurora.Red(s)
 
-		default:
-			return aurora.Yellow(s)
+			default:
+				av = aurora.Yellow(s)
+			}
+			return av.String()
 		}
 	}
 	for _, pinfo := range res.Processes {
 		if processes == nil || processes[pinfo.Name] {
-			_, _ = fmt.Fprintf(tw, "%s\t%v\n", pinfo.Name, state(pinfo.State))
+			fmt.Fprintf(tw, "%s\t%v\n", pinfo.Name, state(pinfo.State))
 		}
 	}
 	tw.Flush()
@@ -124,4 +133,9 @@ func (ctl *Control) printTop(processes []*processResourceUsage) {
 		)
 	}
 	tw.Flush()
+}
+
+func useColor() bool {
+	noColor := os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" || !term.IsTerminal(int(os.Stderr.Fd()))
+	return !noColor
 }

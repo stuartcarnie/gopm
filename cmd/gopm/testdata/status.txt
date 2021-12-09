@@ -1,0 +1,48 @@
+gopm -c gopmconfig --quit-delay 0 &
+waitfile bar.txt
+
+exec sleep 0.1	# wait for bar to exit
+
+gopmctl --addr unix:gopm.socket status
+cmp stdout expect-status
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+programs: {
+	hello: {
+		command: "echo hello"
+		depends_on: ["foo"]
+	}
+	foo: {
+		command: "sleep 10"
+		start_seconds: "3s"
+	}
+	bar: {
+		command: """
+			sleep 1
+			echo bar started > bar.txt
+		"""
+	}
+	baz: {
+		command: "sleep 10"
+		auto_start: false
+	}
+	running: {
+		command: "sleep 10"
+		start_seconds: "0.1s"
+	}
+}
+-- expect-status --
+bar                 Exited
+baz                 Stopped
+foo                 Starting
+hello               Starting
+running             Running

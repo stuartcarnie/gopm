@@ -3,7 +3,6 @@ package process
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"time"
@@ -216,7 +215,6 @@ func (p *process) run() {
 				break
 			}
 			if err := p.signal(p.stopSignals[0]); err != nil {
-				log.Printf("cannot signal process: %v", err)
 			}
 			p.stopSignals = p.stopSignals[1:]
 			p.killTime = time.Now()
@@ -419,6 +417,7 @@ func (p *process) info() *ProcessInfo {
 		Name:       p.name,
 		Start:      p.startTime,
 		Stop:       p.stopTime,
+		State:      p.state,
 		ExitStatus: exitCode(p.exitStatus),
 		Logfile:    p.config.LogFile,
 		Pid:        pid,

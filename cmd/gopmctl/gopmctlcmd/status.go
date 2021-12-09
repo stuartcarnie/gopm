@@ -15,11 +15,14 @@ var statusCmd = cobra.Command{
 		if err != nil {
 			return err
 		}
-		processesMap := make(map[string]bool)
-		for _, process := range args {
-			processesMap[process] = true
+		var processes map[string]bool
+		if len(args) > 0 {
+			processes = make(map[string]bool)
+			for _, process := range args {
+				processes[process] = true
+			}
 		}
-		control.printProcessInfo(res, processesMap)
+		control.printProcessInfo(res, processes)
 		return nil
 	},
 }

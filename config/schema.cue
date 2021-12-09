@@ -135,9 +135,23 @@ import (
 	depends_on?: [...string]
 	labels: [string]: string
 
+	// logfile holds the file to write the output of the process to. If this is /dev/stderr
+	// or /dev/stdout, the output will be written to gopm's standard error or standard
+	// output respectively. If it's empty, no on-disk file will be created.
 	logfile?:           string
-	logfile_backups?:   int
+
+	// logfile_backups specifies how many on-disk backup files to retain.
+	// beyond the most recently rolled log file. Backup files are named
+	// "\(logfile).\(number)" where number starts from 1.
+	logfile_backups?:   int & >= 0
+
+	// When the log file gets to logfile_max_bytes in size, it's
+	// moved to a backup file and a new one created.
 	logfile_max_bytes?: int
+
+	// logfile_max_backlog_bytes specifies the maximum number of
+	// in-memory bytes to use for output backlog.
+	logfile_max_backlog_bytes?: int
 }
 
 #File: {
@@ -157,11 +171,12 @@ import (
 		auto_start: *true | _
 		auto_restart: *false | _
 		restart_file_pattern: *"*" | _
-		stop_signals: *["INT"] | _
+		stop_signals: *["INT", "KILL"] | _
 		stop_wait_seconds: *"10s" | _
 		logfile: *"/dev/null" | _
-		logfile_backups: *10 | _
+		logfile_backups: *1 | _
 		logfile_max_bytes: *50Mi | _
+		logfile_max_backlog_bytes: *1Mi | _
 		...
 	}
 }

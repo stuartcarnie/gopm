@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stuartcarnie/gopm/config"
+	"github.com/stuartcarnie/gopm/logger"
 )
 
 // ErrNotFound is returned when a multi-process operation is
@@ -68,8 +69,8 @@ func (pm *Manager) AllProcessInfo() []*ProcessInfo {
 	// TODO guard against shutdown.
 	reply := make(chan *ProcessInfo)
 	n := len(pm.sendAll(processRequest{
-		kind:  reqInfo,
-		reply: reply,
+		kind:      reqInfo,
+		infoReply: reply,
 	}))
 	infos := make([]*ProcessInfo, 0, n)
 	for i := 0; i < n; i++ {
@@ -142,7 +143,40 @@ type TailLogParams struct {
 // p.Write when data is received. When pm.Follow is true,
 // the log will continue to be written until the context is cancelled.
 func (pm *Manager) TailLog(ctx context.Context, p TailLogParams) error {
-	return fmt.Errorf("unimplemented")
+	reply := make(chan *logger.Logger)
+	procs := pm.send(processRequest{
+		kind:        reqLogger,
+		loggerReply: reply,
+	}, p.Name, nil)
+	if len(procs) == 0 {
+		return ErrNotFound
+	}
+	logger := <-reply
+	closed := make(chan struct{})
+	w := &loggerWriter{
+		Writer: p.Writer,
+		closed: closed,
+	}
+	logger.AddWriter(w, p.BacklogLines, p.Follow)
+	defer logger.RemoveWriter(w)
+	select {
+	case <-ctx.Done():
+	case <-closed:
+	}
+	return nil
+}
+
+type loggerWriter struct {
+	io.Writer
+	closed chan struct{}
+}
+
+func (w *loggerWriter) Close() error {
+	if w.closed != nil {
+		close(w.closed)
+		w.closed = nil
+	}
+	return nil
 }
 
 // sendAll is like send but sends the request to all processes.

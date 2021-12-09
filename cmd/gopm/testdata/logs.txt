@@ -20,8 +20,6 @@ programs: writer: {
 		echo other thing to stderr >&2
 		echo done > finished.txt
 		"""
-	directory: "progdir"
-	stop_signals: ["INT"]
 }
 -- expect-stdout --
 something to stdout

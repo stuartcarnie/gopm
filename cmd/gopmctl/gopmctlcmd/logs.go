@@ -2,6 +2,7 @@ package gopmctlcmd
 
 import (
 	"context"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,6 +40,9 @@ func tailLog(ctx context.Context, name string) error {
 	var msg rpc.TailLogResponse
 	for {
 		if err := stream.RecvMsg(&msg); err != nil {
+			if err != io.EOF {
+				return err
+			}
 			return nil
 		}
 		os.Stdout.Write(msg.Lines)

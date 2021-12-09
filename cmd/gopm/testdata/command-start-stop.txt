@@ -22,5 +22,4 @@ programs: sleeper: {
 		interrupt-notify started.txt intr.txt
 		"""
 	directory: "progdir"
-	stop_signals: ["INT"]
 }

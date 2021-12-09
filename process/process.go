@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stuartcarnie/gopm/config"
+	"github.com/stuartcarnie/gopm/logger"
 	"github.com/stuartcarnie/gopm/signals"
 )
 
@@ -58,6 +59,7 @@ const (
 	reqStop
 	reqRestart
 	reqInfo
+	reqLogger
 )
 
 type processRequest struct {
@@ -68,7 +70,10 @@ type processRequest struct {
 	newDeps   []*process
 
 	// reqInfo
-	reply chan<- *ProcessInfo
+	infoReply chan<- *ProcessInfo
+
+	// reqLogger
+	loggerReply chan<- *logger.Logger
 }
 
 type process struct {
@@ -141,11 +146,21 @@ type process struct {
 	// and is closed when all our dependencies
 	// are ready.
 	depsWatch <-chan struct{}
+
 	// watchStopper is used to tear down the above watcher.
 	watchStopper chan struct{}
+
+	// logger is used for logging process output.
+	logger *logger.Logger
 }
 
 func (p *process) run() {
+	p.logger = logger.New(
+		p.config.LogFile,
+		p.config.LogFileMaxBytes,
+		p.config.LogFileMaxBacklogBytes,
+		p.config.LogFileBackups,
+	)
 	timer := time.NewTimer(time.Minute)
 	timer.Stop()
 	defer p.stopDepsWatch()
@@ -339,9 +354,8 @@ func (p *process) startCommand() error {
 		cmd.Env = append(p.cmd.Env, k+"="+v)
 	}
 	cmd.Dir = p.config.Directory
-	// TODO set up logging.
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = p.logger
+	cmd.Stderr = p.logger
 	setProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("cannot start command: %v", err)
@@ -375,6 +389,10 @@ func (p *process) handleRequest(req processRequest) {
 			p.setStopSignals()
 		}
 		p.setNeedsRestart(req.kind == reqRestart)
+	case reqLogger:
+		req.loggerReply <- p.logger
+	default:
+		panic(fmt.Errorf("unknown process request received: %v", req.kind))
 	}
 }
 

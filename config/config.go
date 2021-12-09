@@ -234,8 +234,9 @@ type Program struct {
 	StopAsGroup             bool              `json:"stop_as_group"`
 	KillAsGroup             bool              `json:"kill_as_group"`
 	LogFile                 string            `json:"logfile"`
-	LogfileBackups          int               `json:"logfile_backups"`
-	LogFileMaxBytes         int               `json:"logfile_max_bytes"`
+	LogFileBackups          int               `json:"logfile_backups"`
+	LogFileMaxBytes         int64             `json:"logfile_max_bytes"`
+	LogFileMaxBacklogBytes  int               `json:"logfile_max_backlog_bytes"`
 	DependsOn               []string          `json:"depends_on"`
 	Labels                  map[string]string `json:"labels"`
 }

@@ -202,17 +202,26 @@ func (pm *Manager) send(req processRequest, name string, labels map[string]strin
 	return procs
 }
 
-// match reports whether the p matches the given name and labels.
-func (pm *Manager) match(p *process, name string, labels map[string]string) bool {
-	cfg := pm.config.Programs[name]
-	if name != "" && cfg.Name != name {
+func programMatcher(name string, labels map[string]string) func(*config.Program) bool {
+	return func(p *config.Program) bool {
+		return matchProgram(p, name, labels)
+	}
+}
+
+func matchProgram(p *config.Program, name string, labels map[string]string) bool {
+	if name != "" && p.Name != name {
 		return false
 	}
 	for k, v := range labels {
-		pv, ok := cfg.Labels[k]
+		pv, ok := p.Labels[k]
 		if !ok || v != pv {
 			return false
 		}
 	}
 	return true
+}
+
+// match reports whether the p matches the given name and labels.
+func (pm *Manager) match(p *process, name string, labels map[string]string) bool {
+	return matchProgram(pm.config.Programs[name], name, labels)
 }

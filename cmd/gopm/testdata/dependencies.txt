@@ -16,21 +16,21 @@ programs: [_]: start_seconds: "1s"
 programs: {
 	a: {
 		command: """
-			echo "[ a $(cat b.txt) $(cat c.txt) ]" > a.txt
+			echo "a [ $(cat b.txt) ] [ $(cat c.txt) ]" > a.txt
 			"""
 		depends_on: ["b", "c"]
 	}
 	b: {
 		command: """
 			sleep 0.5
-			echo "[ b $(cat c.txt) $(cat d.txt) ]" > b.txt
+			echo "b [ $(cat c.txt) ] [ $(cat d.txt) ]" > b.txt
 			"""
 		depends_on: ["c", "d"]
 	}
 	c: {
 		command: """
 			sleep 0.5
-			echo "[ c $(cat d.txt) ]" > c.txt
+			echo "c [ $(cat d.txt) ]" > c.txt
 			"""
 		depends_on: ["d"]
 	}
@@ -42,4 +42,4 @@ programs: {
 	}
 }
 -- expect-a.txt --
-[ a [ b [ c d ] d ] [ c d ] ]
+a [ b [ c [ d ] ] [ d ] ] [ c [ d ] ]

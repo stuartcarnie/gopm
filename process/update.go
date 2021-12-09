@@ -151,6 +151,7 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 					state:     initialState,
 					dependsOn: deps,
 				}
+				pm.notifier.setState(newp, initialState)
 				pm.processes[name] = newp
 				go newp.run()
 				continue
@@ -187,22 +188,38 @@ func (pm *Manager) stopChangedProcesses(ctx context.Context, newConfig *config.C
 	for name := range pm.processes {
 		walkChanged(pm.config, name, changed)
 	}
+	if _, err := pm.stopProcesses(ctx, func(p *config.Program) bool {
+		return changed[p.Name]
+	}); err != nil {
+		return nil, err
+	}
+	return changed, nil
+}
+
+// stopProcesses asks all the processes for which shouldStop returns true to stop.
+// It stops them in reverse dependency order and waits
+// for them to be stopped.
+//
+// It returns the processes that were stopped.
+func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(*config.Program) bool) ([]*process, error) {
 	// In reverse topological order, stop each process that's marked to be stopped.
 	progCohorts := pm.config.TopoSortedPrograms
+	var stopped []*process
 	for i := len(progCohorts) - 1; i >= 0; i-- {
 		var waitFor []*process
 		for _, p := range progCohorts[i] {
 			name := p.Name
-			if !changed[name] {
-				continue
-			}
 			oldp := pm.processes[name]
 			if oldp == nil {
 				panic(fmt.Errorf("process %v not found", name))
 			}
+			if !shouldStop(pm.config.Programs[name]) {
+				continue
+			}
 			oldp.req <- processRequest{
 				kind: reqStop,
 			}
+			stopped = append(stopped, oldp)
 			waitFor = append(waitFor, oldp)
 		}
 		select {
@@ -211,7 +228,7 @@ func (pm *Manager) stopChangedProcesses(ctx context.Context, newConfig *config.C
 			return nil, ctx.Err()
 		}
 	}
-	return changed, nil
+	return stopped, nil
 }
 
 // walkChanged sets any entries in the changed map that correspond to

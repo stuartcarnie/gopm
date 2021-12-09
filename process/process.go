@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/logger"
 	"github.com/stuartcarnie/gopm/signals"
@@ -152,9 +154,14 @@ type process struct {
 
 	// logger is used for logging process output.
 	logger *logger.Logger
+
+	// zlog is an annotated logger for the process.
+	// TODO maybe this should also log to logger.
+	zlog *zap.Logger
 }
 
 func (p *process) run() {
+	p.zlog = zap.L().With(zap.String("prog", p.name))
 	p.logger = logger.New(
 		p.config.LogFile,
 		p.config.LogFileMaxBytes,
@@ -170,6 +177,7 @@ func (p *process) run() {
 			if p.depsWatch == nil {
 				// We don't know whether all our dependencies have started, so start a watcher
 				// to find out.
+
 				p.startDepsWatch()
 				break
 			}
@@ -221,6 +229,7 @@ func (p *process) run() {
 		if p.state != Starting && p.state != Backoff {
 			p.stopDepsWatch()
 		}
+		p.zlog.Info("select", zap.Stringer("state", p.state))
 		select {
 		case req, ok := <-p.req:
 			if !ok {
@@ -229,8 +238,10 @@ func (p *process) run() {
 				}
 				return
 			}
+			p.zlog.Info("handle request", zap.Stringer("kind", req.kind))
 			p.handleRequest(req)
 		case exit := <-p.cmdWait:
+			p.zlog.Info("cmd exit", zap.Error(exit))
 			p.cmd = nil
 			p.exitStatus = exit
 			p.startTime = time.Time{}
@@ -261,6 +272,7 @@ func (p *process) run() {
 			p.state = Backoff
 			timer.Reset(p.config.RestartPause.D)
 		case <-p.depsWatch:
+			p.zlog.Info("dependencies are running")
 			p.depsRunning = true
 		case <-timer.C:
 		}
@@ -292,6 +304,7 @@ func (p *process) startDepsWatch() {
 	if p.watchStopper != nil {
 		close(p.watchStopper)
 	}
+	p.zlog.Info("startDepsWatch", zap.Strings("dependsOn", p.config.DependsOn))
 	p.watchStopper = make(chan struct{})
 	p.depsWatch = p.notifier.watch(p.watchStopper, p.dependsOn, isReady)
 	p.depsRunning = false // Assume they're not running until proven otherwise.

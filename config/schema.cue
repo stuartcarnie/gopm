@@ -43,7 +43,7 @@ import (
 
 #Server: {
 	address: string & =~ "."
-	network?: string
+	network: *"tcp" | string
 }
 
 #RuntimeConfig: {
@@ -177,6 +177,5 @@ import (
 		logfile_backups: *1 | _
 		logfile_max_bytes: *50Mi | _
 		logfile_max_backlog_bytes: *1Mi | _
-		...
 	}
 }

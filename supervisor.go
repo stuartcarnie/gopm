@@ -3,6 +3,7 @@ package gopm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -76,6 +77,7 @@ func (s *Supervisor) Done() <-chan struct{} {
 
 // Reload reloads the supervisor configuration
 func (s *Supervisor) Reload() error {
+	zap.L().Info("reloading configuration")
 	newConfig, err := config.Load(s.configFile, "")
 	if err != nil {
 		var el Errors
@@ -92,10 +94,34 @@ func (s *Supervisor) Reload() error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Listen on the new server addresses before committing to anything,
+	// so that we don't break the network irremediably.
+	var httpListener net.Listener
+	if newConfig.HTTPServer != nil && !reflect.DeepEqual(newConfig.HTTPServer, s.config.HTTPServer) {
+		l, err := net.Listen(newConfig.HTTPServer.Network, newConfig.HTTPServer.Address)
+		if err != nil {
+			return fmt.Errorf("cannot listen on HTTP server address: %v", err)
+		}
+		httpListener = l
+	}
+	var gRPCListener net.Listener
+	if newConfig.GRPCServer != nil && !reflect.DeepEqual(newConfig.GRPCServer, s.config.GRPCServer) {
+		l, err := net.Listen(newConfig.GRPCServer.Network, newConfig.GRPCServer.Address)
+		if err != nil {
+			if httpListener != nil {
+				httpListener.Close()
+			}
+			return fmt.Errorf("cannot listen on gRPC server address: %v", err)
+		}
+		gRPCListener = l
+	}
+
+	s.startHTTPServer(newConfig, httpListener)
+	s.startGrpcServer(newConfig, gRPCListener)
+
 	s.createFiles(newConfig)
 	s.procMgr.Update(context.TODO(), newConfig)
-	s.startHTTPServer(newConfig)
-	s.startGrpcServer(newConfig)
 	s.config = newConfig
 
 	return nil
@@ -135,102 +161,93 @@ func (s *Supervisor) createFiles(newConfig *config.Config) {
 	s.fileSystem = byPath
 }
 
-func (s *Supervisor) startHTTPServer(newConfig *config.Config) {
+func (s *Supervisor) startHTTPServer(newConfig *config.Config, listener net.Listener) {
 	if reflect.DeepEqual(newConfig.HTTPServer, s.config.HTTPServer) {
 		return
 	}
-	if s.httpServer != nil {
-		// TODO is it a problem to do this synchronously?
-		err := s.httpServer.Shutdown(context.Background())
-		if err != nil {
-			zap.L().Error("Unable to shutdown HTTP server", zap.Error(err))
-		} else {
-			zap.L().Info("Stopped HTTP server")
+	if listener != nil {
+		zap.L().Info("Starting HTTP server", zap.String("addr", "http://"+listener.Addr().String()+"/"))
+	} else {
+		zap.L().Info("Stopping HTTP server")
+	}
+
+	var httpServer *http.Server
+	if listener != nil {
+		cfg := newConfig.HTTPServer
+
+		grpcServer := grpc.NewServer()
+		rpc.RegisterGopmServer(grpcServer, s)
+		reflection.Register(grpcServer)
+		wrappedGrpc := grpcweb.WrapServer(grpcServer, grpcweb.WithOriginFunc(func(string) bool { return true }))
+
+		mux := http.NewServeMux()
+		webguiHandler := NewSupervisorWebgui(s).CreateHandler()
+		mux.Handle("/", webguiHandler)
+
+		httpServer = &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if wrappedGrpc.IsGrpcWebRequest(req) {
+					wrappedGrpc.ServeHTTP(w, req)
+					return
+				}
+				mux.ServeHTTP(w, req)
+			}),
+			Addr: cfg.Address,
 		}
-		s.httpServer = nil
 	}
-	if newConfig.HTTPServer == nil {
-		return
-	}
-
-	cfg := newConfig.HTTPServer
-
-	grpcServer := grpc.NewServer()
-	rpc.RegisterGopmServer(grpcServer, s)
-	reflection.Register(grpcServer)
-	wrappedGrpc := grpcweb.WrapServer(grpcServer, grpcweb.WithOriginFunc(func(string) bool { return true }))
-
-	mux := http.NewServeMux()
-	webguiHandler := NewSupervisorWebgui(s).CreateHandler()
-	mux.Handle("/", webguiHandler)
-
-	zap.L().Info("Starting HTTP server", zap.String("addr", cfg.Address))
-
-	srv := http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			if wrappedGrpc.IsGrpcWebRequest(req) {
-				wrappedGrpc.ServeHTTP(w, req)
-				return
-			}
-			mux.ServeHTTP(w, req)
-		}),
-		Addr: cfg.Address,
-	}
-	s.httpServer = &srv
-
+	oldServer := s.httpServer
+	s.httpServer = httpServer
 	go func() {
-		err := srv.ListenAndServe()
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		// Note: we can't shut down the old server synchronously
+		// before starting this goroutine as that might deadlock
+		// because it waits for all current requests to
+		// complete, which may include a request on the server
+		// we're shutting down.
+		if oldServer != nil {
+			if err := oldServer.Shutdown(context.Background()); err != nil {
+				zap.L().Error("Unable to shutdown HTTP server", zap.Error(err))
+			} else {
+				zap.L().Info("Stopped HTTP server")
+			}
+		}
+		if listener == nil {
+			return
+		}
+		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			zap.L().Error("Unable to start HTTP server", zap.Error(err))
 		}
 	}()
 }
 
-func (s *Supervisor) startGrpcServer(newConfig *config.Config) {
+func (s *Supervisor) startGrpcServer(newConfig *config.Config, listener net.Listener) {
 	if reflect.DeepEqual(s.config.GRPCServer, newConfig.GRPCServer) {
 		return
 	}
 	var grpcServer *grpc.Server
-	var ln net.Listener
 	if newConfig.GRPCServer != nil {
-		cfg := newConfig.GRPCServer
-		netw := cfg.Network
-		if netw == "" {
-			// TODO default to "tcp" in config
-			netw = "tcp"
-		}
-		// We should be able to listen on the new address
-		// before shutting down the old server because
-		// we know the address has changed.
-		var err error
-		ln, err = net.Listen(netw, cfg.Address)
-		if err != nil {
-			zap.L().Error("Unable to start gRPC", zap.Error(err), zap.String("addr", cfg.Address))
-			return
-		}
 		grpcServer = grpc.NewServer()
 		rpc.RegisterGopmServer(grpcServer, s)
 		reflection.Register(grpcServer)
+
 	}
-	// We can't stop the existing gRPC server gracefully because
-	// there's currently an active ReloadConfig call in progress
-	// that's waiting for Supervisor.Reload to finish, so
-	// if we call GracefulStop synchronously, we'll deadlock.
-	// To avoid this, stop the server in the goroutine but update s.grpc
-	// immediately.
-	grpc := s.grpc
+	oldServer := s.grpc
 	s.grpc = grpcServer
 
 	go func() {
-		if grpc != nil {
-			grpc.GracefulStop()
+		// Note: we can't shut down the old server synchronously
+		// before starting this goroutine as that might deadlock
+		// because it waits for all current requests to
+		// complete, which may include a request on the server
+		// we're shutting down.
+		if oldServer != nil {
+			oldServer.GracefulStop()
 			zap.L().Info("Stopped gRPC server")
 		}
-		if ln == nil {
+		if listener == nil {
 			return
 		}
-		zap.L().Info("Starting gRPC server", zap.Stringer("addr", ln.Addr()))
-		if err := grpcServer.Serve(ln); err != nil && err != io.EOF {
+		zap.L().Info("Starting gRPC server", zap.Stringer("addr", listener.Addr()))
+		if err := grpcServer.Serve(listener); err != nil && err != io.EOF {
 			zap.L().Error("Unable to start gRPC server", zap.Error(err))
 		}
 	}()

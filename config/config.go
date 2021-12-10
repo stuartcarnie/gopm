@@ -34,6 +34,9 @@ func Load(configDir string, root string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !filepath.IsAbs(configDir) {
+		configDir = filepath.Join(wd, configDir)
+	}
 	// runtime holds the values that are provided to the configuration
 	// from which everything else derives.
 	runtime := &RuntimeConfig{
@@ -50,13 +53,13 @@ func Load(configDir string, root string) (*Config, error) {
 	// as we haven't yet unified with the runtime config.
 	ctx := cuecontext.New()
 	insts := load.Instances([]string{"."}, &load.Config{
-		Dir: filepath.Join(wd, configDir),
+		Dir: configDir,
 	})
 	for _, inst := range insts {
 		if err := inst.Err; err != nil {
 			// TODO print to log file instead of directly to stderr.
 			errors.Print(os.Stderr, err, nil)
-			return nil, err
+			return nil, fmt.Errorf("cannot load CUE instances in %q: %v", filepath.Join(wd, configDir), err)
 		}
 	}
 	vals, err := ctx.BuildInstances(insts)
@@ -112,6 +115,9 @@ func Load(configDir string, root string) (*Config, error) {
 
 	if err := cfg.verifyDependencies(); err != nil {
 		return nil, err
+	}
+	if cfg.GRPCServer == nil && cfg.HTTPServer == nil {
+		return nil, fmt.Errorf("configuration in %q must specify at least one of grpc_server or http_server", configDir)
 	}
 	return &cfg, nil
 }

@@ -10,7 +10,6 @@ require (
 	github.com/improbable-eng/grpc-web v0.12.1-0.20200305144932-d92a6da4a4d4
 	github.com/logrusorgru/aurora v0.0.0-20200102142835-e9ef32dff381
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
-	github.com/ramr/go-reaper v0.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.8.1-0.20211205105603-854826fb81fa
 	github.com/spf13/cobra v1.0.0

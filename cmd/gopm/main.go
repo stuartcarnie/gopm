@@ -96,11 +96,8 @@ var (
 )
 
 func Main() int {
-	gopm.ReapZombie()
-
-	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration file")
+	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration directory")
 	flags := rootCmd.Flags()
-	flags.StringVar(&rootOpt.EnvFile, "env-file", "", "An optional environment file")
 	flags.DurationVar(&rootOpt.QuitDelay, "quit-delay", 2*time.Second, "Time to wait for second CTRL-C before quitting. 0 to quit immediately.")
 	_ = rootCmd.MarkFlagRequired("config")
 

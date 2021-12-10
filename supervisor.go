@@ -55,6 +55,7 @@ func (s *Supervisor) Close() error {
 		zap.L().Info("cannot terminate processes", zap.Error(err))
 	}
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.grpc != nil {
 		s.grpc.GracefulStop()
 		s.grpc = nil

@@ -271,7 +271,6 @@ func (p *process) run() {
 			p.state = Backoff
 			timer.Reset(p.config.RestartPause.D)
 		case <-p.depsWatch:
-			p.zlog.Info("dependencies are running")
 			p.depsRunning = true
 		case <-timer.C:
 		}
@@ -304,7 +303,6 @@ func (p *process) startDepsWatch() {
 	if p.watchStopper != nil {
 		close(p.watchStopper)
 	}
-	p.zlog.Info("startDepsWatch", zap.Strings("dependsOn", p.config.DependsOn))
 	p.watchStopper = make(chan struct{})
 	p.depsWatch = p.notifier.watch(p.watchStopper, p.dependsOn, isReady)
 	p.depsRunning = false // Assume they're not running until proven otherwise.

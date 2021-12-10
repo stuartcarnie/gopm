@@ -253,6 +253,7 @@ type Program struct {
 	Name                    string            `json:"name"`
 	Directory               string            `json:"directory"`
 	Command                 string            `json:"command"`
+	Description             string            `json:"description,omitempty"`
 	Shell                   string            `json:"shell"`
 	Environment             map[string]string `json:"environment"`
 	User                    string            `json:"user"`

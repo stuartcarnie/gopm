@@ -129,14 +129,15 @@ func (s *Supervisor) allProcesses() *rpc.ProcessInfoResponse {
 	rpcInfos := make([]*rpc.ProcessInfo, len(infos))
 	for i, info := range infos {
 		rpcInfos[i] = &rpc.ProcessInfo{
-			Name:       info.Name,
-			Start:      info.Start.Unix(),
-			Stop:       info.Stop.Unix(),
-			Now:        time.Now().Unix(),
-			State:      info.State.String(),
-			ExitStatus: int64(info.ExitStatus),
-			Logfile:    info.Logfile,
-			Pid:        int64(info.Pid),
+			Name:        info.Name,
+			Description: info.Description,
+			Start:       info.Start.Unix(),
+			Stop:        info.Stop.Unix(),
+			Now:         time.Now().Unix(),
+			State:       info.State.String(),
+			ExitStatus:  int64(info.ExitStatus),
+			Logfile:     info.Logfile,
+			Pid:         int64(info.Pid),
 		}
 	}
 	sort.Slice(rpcInfos, func(i, j int) bool {

@@ -65,6 +65,9 @@ import (
 	// from the name of the program entry.
 	name:       =~"^\\w+$"
 
+	// description holds a human-readable description of the program.
+	description?: string
+
 	// directory holds the directory in which to run the program.
 	directory?: string
 

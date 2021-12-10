@@ -54,10 +54,11 @@ func NewManager() *Manager {
 }
 
 type ProcessInfo struct {
-	Name  string
-	Start time.Time
-	Stop  time.Time
-	State State
+	Name        string
+	Description string
+	Start       time.Time
+	Stop        time.Time
+	State       State
 	// TODO make this an error instead?
 	ExitStatus int
 	Logfile    string

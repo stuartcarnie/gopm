@@ -414,13 +414,14 @@ func (p *process) info() *ProcessInfo {
 		pid = p.cmd.Process.Pid
 	}
 	return &ProcessInfo{
-		Name:       p.name,
-		Start:      p.startTime,
-		Stop:       p.stopTime,
-		State:      p.state,
-		ExitStatus: exitCode(p.exitStatus),
-		Logfile:    p.config.LogFile,
-		Pid:        pid,
+		Name:        p.name,
+		Description: p.config.Description,
+		Start:       p.startTime,
+		Stop:        p.stopTime,
+		State:       p.state,
+		ExitStatus:  exitCode(p.exitStatus),
+		Logfile:     p.config.LogFile,
+		Pid:         pid,
 	}
 }
 

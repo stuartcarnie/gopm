@@ -14,12 +14,12 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
 
-programs: writer: {
+gopm: programs: writer: {
 	command: """
 		# Note: sleep after each write so that the writes don't get
 		# amalgamated in the pipe from the process.

@@ -10,11 +10,11 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: createfile: {
+gopm: programs: createfile: {
 	command:      "echo hello > foo.txt"
 	directory:    "progdir"
 }

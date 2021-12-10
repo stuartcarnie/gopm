@@ -8,11 +8,11 @@ stderr 'Error loading configuration  	error:cycles detected in program dependenc
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: {
+gopm: programs: {
 	a: {
 		command: " "
 		depends_on: ["b", "c"]

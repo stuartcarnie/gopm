@@ -23,17 +23,17 @@ exists progdir/intr2.txt
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: sleeper: {
+gopm: programs: sleeper: {
 	command: """
 		interrupt-notify started1.txt intr1.txt
 		"""
 	directory: "progdir"
 }
-programs: unaffected: {
+gopm: programs: unaffected: {
 	command: """
 		interrupt-notify started2.txt intr2.txt
 		"""

@@ -21,18 +21,18 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: sleeper: {
+gopm: programs: sleeper: {
 	command: """
 		echo started > started.txt
 
 		"""
 }
 
-filesystem: {
+gopm: filesystem: {
 	foo: {
 		path: "foo/foo.txt"
 		content: """
@@ -52,17 +52,17 @@ filesystem: {
 -- config2.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: sleeper: {
+gopm: programs: sleeper: {
 	command: """
 		echo started > started.txt
 
 		"""
 }
-filesystem: {
+gopm: filesystem: {
 	bar: {
 		path: "bar.txt"
 		content: """

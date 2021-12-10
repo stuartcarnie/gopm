@@ -64,10 +64,23 @@ func Load(configDir string, root string) (*Config, error) {
 	}
 	vals, err := ctx.BuildInstances(insts)
 	if err != nil {
+		errors.Print(os.Stderr, err, nil)
 		return nil, fmt.Errorf("cannot build instances: %v", err)
 	}
 	if len(vals) != 1 {
 		return nil, fmt.Errorf("wrong value count")
+	}
+	val := vals[0]
+	if err := val.Err(); err != nil {
+		errors.Print(os.Stderr, err, nil)
+		return nil, fmt.Errorf("cannot build configuration: %v", err)
+	}
+	// Make sure the config value is there before we fill it in with
+	// our own schema.
+	configPath := cue.MakePath(cue.Str("gopm"))
+	if val := val.LookupPath(configPath); val.Err() != nil {
+		errors.Print(os.Stderr, val.Err(), nil)
+		return nil, fmt.Errorf("cannot get \"gopm\" value containing configuration: %v", err)
 	}
 
 	// Load the schema and defaults from our embedded CUE file (see schema.cue).
@@ -75,12 +88,15 @@ func Load(configDir string, root string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get local schema: %v", err)
 	}
-
 	// Unify the user's configuration with the schema.
-	val := vals[0].Unify(lschema.config)
+	val = val.FillPath(configPath, lschema.config)
 
+	runtimePath := cue.MakePath(cue.Str("gopm"), cue.Str("runtime"))
 	// Fill in the runtime config, which should complete everything.
-	val = val.FillPath(cue.ParsePath("runtime"), runtime)
+	val = val.FillPath(runtimePath, runtime)
+
+	// Get completed configuration.
+	val = val.LookupPath(configPath)
 
 	// Check that it's all OK.
 	if err := val.Validate(cue.Concrete(true)); err != nil {

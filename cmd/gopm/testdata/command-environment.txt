@@ -1,0 +1,32 @@
+env Y=y1
+env OTHER=o
+gopm -c gopmconfig --quit-delay 0 &
+waitfile gopm.socket
+waitfile started.txt
+cmp started.txt expect-started.txt
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+gopm: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+gopm: {
+	runtime: _
+	programs: foo: {
+		environment: {
+			X: "x"
+			Y: *runtime.environment.Y | "y"
+			Z: *runtime.environment.Z | "z"
+		}
+		command: """
+			echo "$OTHER $X $Y $Z" > started.txt
+			"""
+	}
+}
+-- expect-started.txt --
+ x y1 z

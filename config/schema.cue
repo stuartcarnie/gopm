@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// #Config defines the contents of the "gopm" value.
 #Config: {
 	// runtime is filled in by gopm itself and can be used to
 	// fill in the rest of the configuration values.

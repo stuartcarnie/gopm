@@ -25,11 +25,11 @@ exists intr2.txt
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: sleeper: {
+gopm: programs: sleeper: {
 	command: """
 		trap ":" INT
 		interrupt-notify started1.txt intr1.txt
@@ -37,7 +37,7 @@ programs: sleeper: {
 		"""
 	stop_wait_seconds: "1s"
 }
-programs: unaffected: {
+gopm: programs: unaffected: {
 	command: """
 		interrupt-notify started2.txt intr2.txt
 		"""

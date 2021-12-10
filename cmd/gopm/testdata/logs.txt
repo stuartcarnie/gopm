@@ -12,11 +12,11 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+gopm: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: writer: {
+gopm: programs: writer: {
 	command: """
 		echo something to stdout
 		echo other thing to stderr >&2

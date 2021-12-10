@@ -8,37 +8,39 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
-	network: "unix"
-	address: "gopm.socket"
-}
-programs: [_]: start_seconds: "1s"
-programs: {
-	a: {
-		command: """
-			echo "a [ $(cat b.txt) ] [ $(cat c.txt) ]" > a.txt
-			"""
-		depends_on: ["b", "c"]
+gopm: {
+	grpc_server: {
+		network: "unix"
+		address: "gopm.socket"
 	}
-	b: {
-		command: """
-			sleep 0.5
-			echo "b [ $(cat c.txt) ] [ $(cat d.txt) ]" > b.txt
-			"""
-		depends_on: ["c", "d"]
-	}
-	c: {
-		command: """
-			sleep 0.5
-			echo "c [ $(cat d.txt) ]" > c.txt
-			"""
-		depends_on: ["d"]
-	}
-	d: {
-		command: """
-			sleep 0.5
-			echo d > d.txt
-			"""
+	programs: [_]: start_seconds: "1s"
+	programs: {
+		a: {
+			command: """
+				echo "a [ $(cat b.txt) ] [ $(cat c.txt) ]" > a.txt
+				"""
+			depends_on: ["b", "c"]
+		}
+		b: {
+			command: """
+				sleep 0.5
+				echo "b [ $(cat c.txt) ] [ $(cat d.txt) ]" > b.txt
+				"""
+			depends_on: ["c", "d"]
+		}
+		c: {
+			command: """
+				sleep 0.5
+				echo "c [ $(cat d.txt) ]" > c.txt
+				"""
+			depends_on: ["d"]
+		}
+		d: {
+			command: """
+				sleep 0.5
+				echo d > d.txt
+				"""
+		}
 	}
 }
 -- expect-a.txt --

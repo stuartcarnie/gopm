@@ -359,7 +359,7 @@ func (p *process) startCommand() error {
 
 	// TODO set user ID
 	for k, v := range p.config.Environment {
-		cmd.Env = append(p.cmd.Env, k+"="+v)
+		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 	cmd.Dir = p.config.Directory
 	cmd.Stdout = p.logger

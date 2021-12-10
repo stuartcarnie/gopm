@@ -147,7 +147,7 @@ func (t *tailer) run() {
 			t.logger.RemoveWriter(t)
 			return
 		}
-		// Write any
+		// Write any backlog that's accumulated since.
 		t.mu.Lock()
 		backlog := t.buf
 		t.buf = nil
@@ -186,6 +186,8 @@ func (l *Logger) RemoveWriter(w io.WriteCloser) {
 	l.replace(w, nil)
 }
 
+// replace replaces the logger w with a replacement writer.
+// If with is nil, w is removed.
 func (l *Logger) replace(w io.WriteCloser, with io.WriteCloser) {
 	for i, lw := range l.writers {
 		if !isWriter(lw, w) {

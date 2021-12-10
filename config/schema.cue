@@ -43,7 +43,7 @@ import (
 }
 
 #Server: {
-	address: string & =~ "."
+	address: string & =~"."
 	network: *"tcp" | string
 }
 
@@ -64,7 +64,7 @@ import (
 #Program: {
 	// name holds the name of the program. This is implied
 	// from the name of the program entry.
-	name:       =~"^\\w+$"
+	name: =~"^\\w+$"
 
 	// description holds a human-readable description of the program.
 	description?: string
@@ -73,7 +73,7 @@ import (
 	directory?: string
 
 	// command holds the command to run the program.
-	command:    string & =~ "."
+	command: string & =~"."
 
 	// shell specifies the shell command to use to interpret the
 	// above command. The shell is invoked as $shell -c $command.
@@ -104,16 +104,16 @@ import (
 	start_seconds?: time.Duration
 
 	// cron holds a cron schedule for running the program.
-	cron?:          string		// TODO validate this
+	cron?: string // TODO validate this
 
 	// auto_start indicates whether the program should start automatically when
 	// gopm is started.
-	auto_start?:    bool
+	auto_start?: bool
 
 	// auto_restart indicates whether the program should be restarted automatically
 	// after it exits. If it's not present, the program will be restarted if it exits with an
 	// exit code not mentioned in exit_codes.
-	auto_restart?:  bool
+	auto_restart?: bool
 
 	// exit_codes holds the set of "expected" exit codes. If the program exits
 	// with one of these codes and auto_restart isn't present, it won't be restarted.
@@ -129,10 +129,10 @@ import (
 
 	// stop_signals holds a list of signals to send in order to try to kill the running process.
 	// There will be a pause of stop_wait_seconds after each attempt.
-	stop_signals?:                [..."HUP" | "INT" | "QUIT" | "KILL" | "TERM" | "USR1" | "USR2"]
+	stop_signals?: [..."HUP" | "INT" | "QUIT" | "KILL" | "TERM" | "USR1" | "USR2"]
 
 	// stop_wait_seconds holds the time to wait for the process to stop after sending a signal.
-	stop_wait_seconds?:        time.Duration
+	stop_wait_seconds?: time.Duration
 
 	// A list of process names that must be started before starting
 	// this process
@@ -142,12 +142,12 @@ import (
 	// logfile holds the file to write the output of the process to. If this is /dev/stderr
 	// or /dev/stdout, the output will be written to gopm's standard error or standard
 	// output respectively. If it's empty, no on-disk file will be created.
-	logfile?:           string
+	logfile?: string
 
 	// logfile_backups specifies how many on-disk backup files to retain.
 	// beyond the most recently rolled log file. Backup files are named
 	// "\(logfile).\(number)" where number starts from 1.
-	logfile_backups?:   int & >= 0
+	logfile_backups?: int & >=0
 
 	// When the log file gets to logfile_max_bytes in size, it's
 	// moved to a backup file and a new one created.
@@ -160,26 +160,26 @@ import (
 
 #File: {
 	name:    =~"^\\w+$"
-	path:    string & =~ "."
+	path:    string & =~"."
 	content: string
 }
 
-#ConfigWithDefaults: #Config &  {
+#ConfigWithDefaults: #Config & {
 	runtime: _
 	programs: [_]: #Program & {
-		directory: *runtime.cwd | _
-		shell: *"/bin/sh" | _
-		exit_codes: *[0, 2] | _
-		start_retries: *3 | _
-		start_seconds: *"1s" | _
-		auto_start: *true | _
-		auto_restart: *false | _
-		restart_file_pattern: *"*" | _
-		stop_signals: *["INT", "KILL"] | _
-		stop_wait_seconds: *"10s" | _
-		logfile: *"/dev/null" | _
-		logfile_backups: *1 | _
-		logfile_max_bytes: *50Mi | _
+		directory:                 *runtime.cwd | _
+		shell:                     *"/bin/sh" | _
+		exit_codes:                *[0, 2] | _
+		start_retries:             *3 | _
+		start_seconds:             *"1s" | _
+		auto_start:                *true | _
+		auto_restart:              *false | _
+		restart_file_pattern:      *"*" | _
+		stop_signals:              *["INT", "KILL"] | _
+		stop_wait_seconds:         *"10s" | _
+		logfile:                   *"/dev/null" | _
+		logfile_backups:           *1 | _
+		logfile_max_bytes:         *50Mi | _
 		logfile_max_backlog_bytes: *1Mi | _
 	}
 }

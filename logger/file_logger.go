@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 
 	"go.uber.org/zap"
 )
@@ -16,7 +15,6 @@ type fileLogger struct {
 	backups  int
 	fileSize int64
 	file     *os.File
-	locker   sync.Locker
 }
 
 // newFileLogger returns a logger that logs to the file with the given name

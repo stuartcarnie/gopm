@@ -179,11 +179,6 @@ func (t *tailer) run() {
 	}
 }
 
-func (t *tailer) removeSelf() {
-	t.w.Close()
-	t.logger.RemoveWriter(t)
-}
-
 // RemoveWriter removes w from the set of writers being logged to.
 func (l *Logger) RemoveWriter(w io.WriteCloser) {
 	l.mu.Lock()

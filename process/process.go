@@ -171,6 +171,11 @@ func (p *process) run() {
 	timer := time.NewTimer(time.Minute)
 	timer.Stop()
 	defer p.stopDepsWatch()
+
+	// Loop waiting for events, and letting p.state largely dictate what we
+	// do when things happen. Note that this goroutine should never block
+	// anywhere other than in the select statement below - it should always
+	// be ready to accept commands on p.req.
 	for {
 		switch p.state {
 		case Starting, Backoff:
@@ -186,22 +191,32 @@ func (p *process) run() {
 			}
 			p.stopDepsWatch()
 			if p.cmd == nil && time.Since(p.stopTime) >= p.config.RestartPause.D {
+				// It's time to start the command.
 				p.startCount++
 				p.totalStartCount++
 				if err := p.startCommand(); err != nil {
+					// It's an error that won't be fixed by retrying.
+					p.zlog.Info("cannot start command", zap.Error(err))
 					p.state = Fatal
+					break
 				}
-
+				// Wake up when the command has been running long enough
+				// to mark it as such.
 				p.startTime = time.Now()
-				timer.Reset(p.config.StartSeconds.D)
 				p.stopTime = time.Time{}
+				timer.Reset(p.config.StartSeconds.D)
 			}
 			if time.Since(p.startTime) >= p.config.StartSeconds.D {
+				// The command has been running for long enough to go
+				// into the Running state.
 				p.state = Running
 				p.startCount = 0
 				timer.Stop()
 			}
 		case Stopping:
+			// When we're stopping, p.stopSignals keeps track of the next signal
+			// in the sequence of signals to send. It's moved on one element for
+			// every stop attempt.
 			if time.Since(p.killTime) < p.config.StopWaitSeconds.D {
 				// We're waiting until we can try to kill with the next signal
 				break
@@ -215,6 +230,7 @@ func (p *process) run() {
 				break
 			}
 			if err := p.signal(p.stopSignals[0]); err != nil {
+				p.zlog.Info("failed to send stop signal", zap.Error(err))
 			}
 			p.stopSignals = p.stopSignals[1:]
 			p.killTime = time.Now()
@@ -224,21 +240,32 @@ func (p *process) run() {
 		case Exited:
 		case Fatal:
 		}
+
+		// Notify everyone else of our current state.
 		p.notifier.setState(p, p.state)
 		if p.state != Starting && p.state != Backoff {
+			// We don't need to watch for dependencies unless we're trying
+			// to start a command.
 			p.stopDepsWatch()
 		}
+
 		select {
 		case req, ok := <-p.req:
 			if !ok {
+				// The request channel has closed to signal this process has been
+				// removed.
 				if p.cmd != nil {
 					panic("process torn down without killing process!")
 				}
 				return
 			}
+			// We've got a request from outside.
 			p.zlog.Info("handle request", zap.Stringer("kind", req.kind))
 			p.handleRequest(req)
+
 		case exit := <-p.cmdWait:
+			// The command that we're running has exited.
+
 			p.zlog.Info("cmd exit", zap.Error(exit))
 			p.cmd = nil
 			p.exitStatus = exit
@@ -249,13 +276,14 @@ func (p *process) run() {
 				// TODO Should we log any unexpected exit status here?
 				if p.needsRestart() {
 					p.state = Starting
-					p.setStopSignals()
 				} else {
 					p.state = Stopped
 				}
 				break
 			}
 			okExit := p.isExpectedExit(exit)
+			// With the default value (nil) of AutoRestart, we'll restart
+			// only if the exit status isn't an expected one.
 			restart := !okExit
 			if p.config.AutoRestart != nil {
 				restart = *p.config.AutoRestart
@@ -268,15 +296,23 @@ func (p *process) run() {
 				}
 				break
 			}
+			// Wake up when we can try again.
 			p.state = Backoff
 			timer.Reset(p.config.RestartPause.D)
+
 		case <-p.depsWatch:
+			// Our dependencies have become ready.
 			p.depsRunning = true
+
 		case <-timer.C:
+			// A previously configured timer event has fired.
 		}
 	}
 }
 
+// setStopSignals sets p.stopSignals to the list of signals that
+// we'll use to try to stop the process. It also makes sure that
+// there's always a KILL signal as the last resort.
 func (p *process) setStopSignals() {
 	sigs := p.config.StopSignals
 	if len(sigs) > 0 && sigs[len(sigs)-1].S == os.Kill {
@@ -291,6 +327,7 @@ func (p *process) setStopSignals() {
 	p.stopSignals = sigs
 }
 
+// signal sends a signal to the running command.
 func (p *process) signal(sig config.Signal) error {
 	if p.cmd == nil || p.cmd.Process == nil {
 		return fmt.Errorf("process not started")
@@ -299,13 +336,24 @@ func (p *process) signal(sig config.Signal) error {
 	return signals.Kill(p.cmd.Process, sig.S, true)
 }
 
+// startDepsWatch starts a watcher to notify this process when
+// its dependencies are all running.
 func (p *process) startDepsWatch() {
-	if p.watchStopper != nil {
-		close(p.watchStopper)
-	}
+	p.stopDepsWatch()
 	p.watchStopper = make(chan struct{})
 	p.depsWatch = p.notifier.watch(p.watchStopper, p.dependsOn, isReady)
 	p.depsRunning = false // Assume they're not running until proven otherwise.
+}
+
+func (p *process) stopDepsWatch() {
+	p.depsRunning = false
+	if p.watchStopper == nil {
+		return
+	}
+	close(p.watchStopper)
+	p.watchStopper = nil
+	p.depsWatch = nil
+	p.depsRunning = false
 }
 
 func (p *process) isExpectedExit(err error) bool {
@@ -321,17 +369,6 @@ func (p *process) isExpectedExit(err error) bool {
 		}
 	}
 	return false
-}
-
-func (p *process) stopDepsWatch() {
-	p.depsRunning = false
-	if p.watchStopper == nil {
-		return
-	}
-	close(p.watchStopper)
-	p.watchStopper = nil
-	p.depsWatch = nil
-	p.depsRunning = false
 }
 
 func (p *process) setNeedsRestart(need bool) {
@@ -368,10 +405,13 @@ func (p *process) startCommand() error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("cannot start command: %v", err)
 	}
+
+	// Start a goroutine notify us when the process has exited.
 	cmdWait := make(chan error, 1)
 	go func() {
 		cmdWait <- cmd.Wait()
 	}()
+
 	p.cmd = cmd
 	p.cmdWait = cmdWait
 	return nil
@@ -384,7 +424,7 @@ func (p *process) handleRequest(req processRequest) {
 	case reqStart:
 		switch p.state {
 		case Running, Starting:
-			// No need to do anything - we're already started or trying to start.
+			// No need to do anything - we're already started or are trying to start.
 		default:
 			// Ignore any current exited, failed or backoff status.
 			p.state = Starting
@@ -423,6 +463,7 @@ func (p *process) info() *ProcessInfo {
 	}
 }
 
+// The program's configuration has changed.
 func (p *process) handleUpdate(newConfig *config.Program, deps []*process) {
 	if p.cmd != nil {
 		// We should never be sent an update when we're not stopped.

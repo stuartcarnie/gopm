@@ -59,7 +59,7 @@ func Load(configDir string, root string) (*Config, error) {
 		if err := inst.Err; err != nil {
 			// TODO print to log file instead of directly to stderr.
 			errors.Print(os.Stderr, err, nil)
-			return nil, fmt.Errorf("cannot load CUE instances in %q: %v", filepath.Join(wd, configDir), err)
+			return nil, fmt.Errorf("cannot load CUE instances in %q: %v", configDir, err)
 		}
 	}
 	vals, err := ctx.BuildInstances(insts)

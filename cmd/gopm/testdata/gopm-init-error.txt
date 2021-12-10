@@ -1,0 +1,2 @@
+! gopm -c nonexistentdirectory
+stderr 'ERR.*Error loading configuration'

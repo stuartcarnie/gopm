@@ -29,6 +29,8 @@ var (
 	rootCmd = cobra.Command{
 		Use: "gopmctl",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// When all flags have parsed OK, don't show usage info.
+			cmd.SilenceUsage = true
 			return control.initializeClient()
 		},
 	}
@@ -52,7 +54,6 @@ func init() {
 
 func Main() int {
 	if err := rootCmd.Execute(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	return 0

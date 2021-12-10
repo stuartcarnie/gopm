@@ -1,7 +1,7 @@
 # Test that a configuration with cyclic dependencies is an error.
 
 # Start it up. It should fail immediately with an error.
-gopm -c gopmconfig --quit-delay 0 &
+! gopm -c gopmconfig --quit-delay 0 &
 wait
 stderr 'Error loading configuration  	error:cycles detected in program dependencies: (\[a <= b <= a]|\[b <= a <= b])'
 

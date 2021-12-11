@@ -27,11 +27,11 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-gopm: grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-gopm: programs: sleeper: {
+config: programs: sleeper: {
 	command: "interrupt-notify started.txt intr.txt"
 	directory: "progdir"
 }
@@ -39,11 +39,11 @@ gopm: programs: sleeper: {
 -- config2.cue --
 package config
 
-gopm: grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-gopm: programs: other: {
+config: programs: other: {
 	command: "echo hello > other-started.txt"
 	directory: "progdir"
 }

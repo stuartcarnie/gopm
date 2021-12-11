@@ -8,7 +8,7 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-gopm: {
+config: {
 	grpc_server: {
 		network: "unix"
 		address: "gopm.socket"

@@ -11,12 +11,12 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-gopm: grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-gopm: {
-	runtime: _
+runtime: _
+config: {
 	programs: foo: {
 		environment: {
 			X: "x"

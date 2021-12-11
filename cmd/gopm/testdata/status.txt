@@ -12,11 +12,11 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-gopm: grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-gopm: programs: {
+config: programs: {
 	hello: {
 		command: "echo hello"
 		depends_on: ["foo"]

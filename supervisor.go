@@ -78,17 +78,15 @@ func (s *Supervisor) Done() <-chan struct{} {
 // Reload reloads the supervisor configuration
 func (s *Supervisor) Reload() error {
 	zap.L().Info("reloading configuration")
-	newConfig, err := config.Load(s.configFile, "")
+	newConfig, err := config.Load(s.configFile)
 	if err != nil {
-		var el Errors
-		if errors.As(err, &el) {
-			errs := el.Errors()
-			zap.L().Error("Error loading configuration")
-			for _, err := range errs {
-				zap.L().Error("Configuration file error", zap.Error(err))
-			}
-		} else {
-			zap.L().Error("Error loading configuration", zap.Error(err))
+		zap.L().Error("Error loading configuration", zap.Error(err))
+		var configErr *config.ConfigError
+		if errors.As(err, &configErr) {
+			// TODO zap doesn't seem appropriate for this. Probably
+			// better to return all the information in the gRPC response
+			// to be printed to the user.
+			fmt.Fprintf(os.Stderr, "%s\n", configErr.AllErrors())
 		}
 		return SupervisorConfigError{Err: err}
 	}

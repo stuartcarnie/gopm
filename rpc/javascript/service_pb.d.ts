@@ -154,21 +154,6 @@ export namespace StartStopAllRequest {
 }
 
 export class ReloadConfigResponse extends jspb.Message {
-  getAddedGroupList(): Array<string>;
-  setAddedGroupList(value: Array<string>): ReloadConfigResponse;
-  clearAddedGroupList(): ReloadConfigResponse;
-  addAddedGroup(value: string, index?: number): ReloadConfigResponse;
-
-  getChangedGroupList(): Array<string>;
-  setChangedGroupList(value: Array<string>): ReloadConfigResponse;
-  clearChangedGroupList(): ReloadConfigResponse;
-  addChangedGroup(value: string, index?: number): ReloadConfigResponse;
-
-  getRemovedGroupList(): Array<string>;
-  setRemovedGroupList(value: Array<string>): ReloadConfigResponse;
-  clearRemovedGroupList(): ReloadConfigResponse;
-  addRemovedGroup(value: string, index?: number): ReloadConfigResponse;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ReloadConfigResponse.AsObject;
   static toObject(includeInstance: boolean, msg: ReloadConfigResponse): ReloadConfigResponse.AsObject;
@@ -179,9 +164,6 @@ export class ReloadConfigResponse extends jspb.Message {
 
 export namespace ReloadConfigResponse {
   export type AsObject = {
-    addedGroupList: Array<string>,
-    changedGroupList: Array<string>,
-    removedGroupList: Array<string>,
   }
 }
 

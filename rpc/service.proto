@@ -55,9 +55,8 @@ message StartStopAllRequest {
 }
 
 message ReloadConfigResponse {
-    repeated string added_group = 1;
-    repeated string changed_group = 2;
-    repeated string removed_group = 3;
+    // Previous removed tags ended at 3.
+    // TODO add multiple errors so that gopmctl can print them.
 }
 
 message TailLogRequest {

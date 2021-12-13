@@ -162,7 +162,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.gopm.rpc.ReloadConfigResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.gopm.rpc.ReloadConfigResponse.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.gopm.rpc.ReloadConfigResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -1350,13 +1350,6 @@ proto.gopm.rpc.StartStopAllRequest.prototype.setWait = function(value) {
 
 
 
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.gopm.rpc.ReloadConfigResponse.repeatedFields_ = [1,2,3];
-
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -1388,9 +1381,7 @@ proto.gopm.rpc.ReloadConfigResponse.prototype.toObject = function(opt_includeIns
  */
 proto.gopm.rpc.ReloadConfigResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    addedGroupList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f,
-    changedGroupList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
-    removedGroupList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f
+
   };
 
   if (includeInstance) {
@@ -1427,18 +1418,6 @@ proto.gopm.rpc.ReloadConfigResponse.deserializeBinaryFromReader = function(msg, 
     }
     var field = reader.getFieldNumber();
     switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAddedGroup(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addChangedGroup(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addRemovedGroup(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -1468,138 +1447,6 @@ proto.gopm.rpc.ReloadConfigResponse.prototype.serializeBinary = function() {
  */
 proto.gopm.rpc.ReloadConfigResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getAddedGroupList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      1,
-      f
-    );
-  }
-  f = message.getChangedGroupList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      2,
-      f
-    );
-  }
-  f = message.getRemovedGroupList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      3,
-      f
-    );
-  }
-};
-
-
-/**
- * repeated string added_group = 1;
- * @return {!Array<string>}
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.getAddedGroupList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 1));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.setAddedGroupList = function(value) {
-  return jspb.Message.setField(this, 1, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.addAddedGroup = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.clearAddedGroupList = function() {
-  return this.setAddedGroupList([]);
-};
-
-
-/**
- * repeated string changed_group = 2;
- * @return {!Array<string>}
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.getChangedGroupList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 2));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.setChangedGroupList = function(value) {
-  return jspb.Message.setField(this, 2, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.addChangedGroup = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.clearChangedGroupList = function() {
-  return this.setChangedGroupList([]);
-};
-
-
-/**
- * repeated string removed_group = 3;
- * @return {!Array<string>}
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.getRemovedGroupList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.setRemovedGroupList = function(value) {
-  return jspb.Message.setField(this, 3, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.addRemovedGroup = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.gopm.rpc.ReloadConfigResponse} returns this
- */
-proto.gopm.rpc.ReloadConfigResponse.prototype.clearRemovedGroupList = function() {
-  return this.setRemovedGroupList([]);
 };
 
 

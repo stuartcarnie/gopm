@@ -72,11 +72,7 @@ func (s *Supervisor) ReloadConfig(context.Context, *empty.Empty) (*rpc.ReloadCon
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &rpc.ReloadConfigResponse{
-		AddedGroup:   nil,
-		ChangedGroup: nil,
-		RemovedGroup: nil,
-	}, nil
+	return &rpc.ReloadConfigResponse{}, nil
 }
 
 func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogServer) error {

@@ -28,8 +28,22 @@ var (
 )
 
 // Load loads the configuration at the given directory and returns it.
-// If root isn't empty, it configures the location of the filesystem root.
-func Load(configDir string, root string) (*Config, error) {
+// On error, the error value may contain an Error value
+// containing multiple errors.
+func Load(configDir string) (*Config, error) {
+	cfg, err := load0(configDir)
+	if err == nil {
+		return cfg, nil
+	}
+	if errors.As(err, new(errors.Error)) {
+		err = &ConfigError{
+			err: err,
+		}
+	}
+	return nil, err
+}
+
+func load0(configDir string) (*Config, error) {
 	info, err := os.Stat(configDir)
 	if err != nil {
 		return nil, err
@@ -48,7 +62,6 @@ func Load(configDir string, root string) (*Config, error) {
 	// runtime holds the values that are provided to the configuration
 	// from which everything else derives.
 	runtime := &RuntimeConfig{
-		Root:        root,
 		CWD:         wd,
 		Environment: make(map[string]string),
 	}
@@ -70,7 +83,6 @@ func Load(configDir string, root string) (*Config, error) {
 	}
 	vals, err := ctx.BuildInstances(insts)
 	if err != nil {
-		errors.Print(os.Stderr, err, nil)
 		return nil, fmt.Errorf("cannot build instances: %w", err)
 	}
 	if len(vals) != 1 {
@@ -83,7 +95,6 @@ func Load(configDir string, root string) (*Config, error) {
 	// Make sure the config value is there before we fill it in with
 	// our own schema.
 	if val := val.LookupPath(pathConfig); val.Err() != nil {
-		errors.Print(os.Stderr, val.Err(), nil)
 		return nil, fmt.Errorf("cannot get \"gopm\" value containing configuration: %w", err)
 	}
 
@@ -98,14 +109,20 @@ func Load(configDir string, root string) (*Config, error) {
 	// Fill in the runtime config, which should complete everything.
 	val = val.FillPath(pathRuntime, runtime)
 
-	// Get completed configuration.
-	val = val.LookupPath(pathConfig)
-
 	// Check that it's all OK.
-	if err := val.Validate(cue.Concrete(true)); err != nil {
-		// TODO print to log file instead of directly to stderr.
+	if err := val.Validate(
+		cue.Attributes(true),
+		cue.Definitions(true),
+		cue.Hidden(true),
+		cue.Concrete(true),
+	); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
+
+	// Get completed configuration.
+	// Note: do this after validation because if we do it before,
+	// we can hide useful error messages.
+	val = val.LookupPath(pathConfig)
 
 	// Export to JSON, then reimport, so we can apply our own defaults without
 	// conflicting with any defaults applied by the user's configuration.
@@ -259,7 +276,6 @@ type File struct {
 
 type RuntimeConfig struct {
 	Environment map[string]string `json:"environment"`
-	Root        string            `json:"root,omitempty"`
 	CWD         string            `json:"cwd"`
 }
 
@@ -356,4 +372,29 @@ func (s *Signal) UnmarshalJSON(data []byte) error {
 	s.S = sig
 	s.String = str
 	return nil
+}
+
+type ConfigError struct {
+	err error
+}
+
+func (err *ConfigError) Error() string {
+	return err.err.Error()
+}
+
+// AllErrors returns information on all the errors encountered
+// when parsing the configuration. It returns the empty string
+// if the error wasn't because of parsing the config.
+func (err *ConfigError) AllErrors() string {
+	var buf strings.Builder
+	var cueErr errors.Error
+	if !errors.As(err.err, &cueErr) {
+		return ""
+	}
+	errors.Print(&buf, cueErr, nil)
+	return buf.String()
+}
+
+func (err *ConfigError) Unwrap() error {
+	return err.err
 }

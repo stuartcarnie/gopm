@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,10 +14,17 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
+	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/load"
 	"github.com/robfig/cron/v3"
 
 	"github.com/stuartcarnie/gopm/signals"
+)
+
+var (
+	pathWithDefaults = cue.MakePath(cue.Def("#WithDefaults"))
+	pathRuntime      = cue.MakePath(cue.Str("runtime"))
+	pathConfig       = cue.MakePath(cue.Str("config"))
 )
 
 // Load loads the configuration at the given directory and returns it.
@@ -57,77 +65,77 @@ func Load(configDir string, root string) (*Config, error) {
 	})
 	for _, inst := range insts {
 		if err := inst.Err; err != nil {
-			// TODO print to log file instead of directly to stderr.
-			errors.Print(os.Stderr, err, nil)
-			return nil, fmt.Errorf("cannot load CUE instances in %q: %v", configDir, err)
+			return nil, fmt.Errorf("cannot load CUE instances in %q: %w", configDir, err)
 		}
 	}
 	vals, err := ctx.BuildInstances(insts)
 	if err != nil {
 		errors.Print(os.Stderr, err, nil)
-		return nil, fmt.Errorf("cannot build instances: %v", err)
+		return nil, fmt.Errorf("cannot build instances: %w", err)
 	}
 	if len(vals) != 1 {
 		return nil, fmt.Errorf("wrong value count")
 	}
 	val := vals[0]
 	if err := val.Err(); err != nil {
-		errors.Print(os.Stderr, err, nil)
-		return nil, fmt.Errorf("cannot build configuration: %v", err)
+		return nil, fmt.Errorf("cannot build configuration: %w", err)
 	}
 	// Make sure the config value is there before we fill it in with
 	// our own schema.
-	configPath := cue.MakePath(cue.Str("gopm"))
-	if val := val.LookupPath(configPath); val.Err() != nil {
+	if val := val.LookupPath(pathConfig); val.Err() != nil {
 		errors.Print(os.Stderr, val.Err(), nil)
-		return nil, fmt.Errorf("cannot get \"gopm\" value containing configuration: %v", err)
+		return nil, fmt.Errorf("cannot get \"gopm\" value containing configuration: %w", err)
 	}
 
 	// Load the schema and defaults from our embedded CUE file (see schema.cue).
 	lschema, err := getLocalSchema(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get local schema: %v", err)
+		return nil, fmt.Errorf("cannot get local schema: %w", err)
 	}
 	// Unify the user's configuration with the schema.
-	val = val.FillPath(configPath, lschema.config)
+	val = val.Unify(lschema)
 
-	runtimePath := cue.MakePath(cue.Str("gopm"), cue.Str("runtime"))
 	// Fill in the runtime config, which should complete everything.
-	val = val.FillPath(runtimePath, runtime)
+	val = val.FillPath(pathRuntime, runtime)
 
 	// Get completed configuration.
-	val = val.LookupPath(configPath)
+	val = val.LookupPath(pathConfig)
 
 	// Check that it's all OK.
 	if err := val.Validate(cue.Concrete(true)); err != nil {
 		// TODO print to log file instead of directly to stderr.
-		errors.Print(os.Stderr, err, nil)
-		return nil, fmt.Errorf("config validation failed: %v", err)
+		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	// Export to JSON, then reimport, so we can apply our own defaults without
 	// conflicting with any defaults applied by the user's configuration.
 	data, err := val.MarshalJSON()
 	if err != nil {
-		return nil, fmt.Errorf("cannot marshal: %v", err)
+		return nil, fmt.Errorf("cannot marshal: %w", err)
 	}
-
 	val = ctx.Encode(json.RawMessage(data))
 	if err := val.Err(); err != nil {
-		return nil, fmt.Errorf("cannot reencode configuration as CUE: %v", err)
+		return nil, fmt.Errorf("cannot reencode configuration as CUE: %w", err)
 	}
 
-	// Apply our local defaults.
-	val = val.Unify(lschema.defaults)
-
-	// TODO check for path conflicts in files (or we could do that in the schema, I guess,
-	// although the error report would be more opaque).
+	// Get the local defaults and apply the completed config to them.
+	val = lschema.LookupPath(pathWithDefaults).FillPath(pathConfig, val)
+	if err := val.Err(); err != nil {
+		return nil, fmt.Errorf("cannot fill out defaults: %w", err)
+	}
+	val = val.FillPath(pathRuntime, runtime)
+	if err := val.Err(); err != nil {
+		return nil, fmt.Errorf("cannot fill runtime: %w", err)
+	}
 
 	// Decode into the final Config value.
 	var cfg Config
-	if err := val.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("cannot decode into config: %v", err)
+	if err := val.LookupPath(pathConfig).Decode(&cfg); err != nil {
+		return nil, fmt.Errorf("cannot decode into config: %w", err)
 	}
+
+	// TODO check for path conflicts in files (or we could do that in the schema, I guess,
+	// although the error report would be more opaque).
 
 	if err := cfg.verifyDependencies(); err != nil {
 		return nil, err
@@ -192,18 +200,21 @@ func (cfg *Config) checkDepsExist() error {
 	return nil
 }
 
-type localSchema struct {
-	// config holds the #Config definition
-	config cue.Value
-	// defaults holds the #Defaults definition.
-	defaults cue.Value
+func dumpCUE(what string, val cue.Value) {
+	node := val.Syntax(cue.Hidden(true), cue.Docs(true), cue.Optional(true), cue.Definitions(true), cue.Attributes(true))
+	data, err := format.Node(node, format.TabIndent(true))
+	if err != nil {
+		log.Printf("%s: cannot dump: %v", what, node)
+		return
+	}
+	log.Printf("%s:\n%s\n", what, data)
 }
 
 //go:embed schema.cue
 var schema []byte
 
 // getLocalSchema returns the schema info from schema.cue.
-func getLocalSchema(ctx *cue.Context) (*localSchema, error) {
+func getLocalSchema(ctx *cue.Context) (cue.Value, error) {
 	insts := load.Instances([]string{"/schema.cue"}, &load.Config{
 		Overlay: map[string]load.Source{
 			"/schema.cue": load.FromBytes(schema),
@@ -211,31 +222,18 @@ func getLocalSchema(ctx *cue.Context) (*localSchema, error) {
 	})
 	vals, err := ctx.BuildInstances(insts)
 	if err != nil {
-		return nil, fmt.Errorf("cannot build instances for local schema: %v", err)
+		return cue.Value{}, fmt.Errorf("cannot build instances for local schema: %w", err)
 	}
 	if len(vals) != 1 {
-		return nil, fmt.Errorf("expected 1 value, got %d", len(insts))
+		return cue.Value{}, fmt.Errorf("expected 1 value, got %d", len(insts))
 	}
-	val := vals[0]
-	configDef := val.LookupPath(cue.MakePath(cue.Def("#Config")))
-	if err := configDef.Err(); err != nil {
-		return nil, fmt.Errorf("cannot get #Config: %v", err)
-	}
-	defaultsDef := val.LookupPath(cue.MakePath(cue.Def("#ConfigWithDefaults")))
-	if err := configDef.Err(); err != nil {
-		return nil, fmt.Errorf("cannot get #ConfigWithDefaults: %v", err)
-	}
-	return &localSchema{
-		config:   configDef,
-		defaults: defaultsDef,
-	}, nil
+	return vals[0], nil
 }
 
 // Config defines the gopm configuration data.
 type Config struct {
-	// Runtime is provided to the user in order that they
-	// can fill out the rest of their configuration.
-	Runtime RuntimeConfig `json:"runtime"`
+	// Root holds the root of the filesystem.
+	Root string `json:"root"`
 
 	Environment map[string]string   `json:"environment"`
 	HTTPServer  *Server             `json:"http_server"`

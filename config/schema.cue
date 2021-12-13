@@ -5,11 +5,17 @@ import (
 	"time"
 )
 
-// #Config defines the contents of the "gopm" value.
+// future-proofing
+version: "gopm.v1"
+runtime: #RuntimeConfig
+config: #Config
+
+// #Config defines the contents of the "config" value.
 #Config: {
-	// runtime is filled in by gopm itself and can be used to
-	// fill in the rest of the configuration values.
-	runtime: #RuntimeConfig
+	// root holds the root directory for the filesystem
+	// files. This is also the default directory for programs
+	// to run in.
+	root: *runtime.cwd | string
 
 	// gprc_server specifies that a gRPC server should
 	// run providing access to the running gopm programs.
@@ -26,19 +32,13 @@ import (
 
 	// filesystem holds the files to create before starting the programs.
 	// It's keyed by an arbitrary key (not necessarily the file path).
-	// The full filename of a given file f can be found by looking in
-	// #paths[f].
+	// The full filename of a given file f can be found by looking in the absPath
+	// field.
 	filesystem: [string]: #File
 	filesystem: [name=_]: "name": name
-
-	// #paths holds an entry for each file, making it easier for a configuration
-	// to find out the full path name of any file above.
-	#Paths: [string]: string
-	#Paths: {
-		for name, f in filesystem {
-			// The string interpolation below is to work around https://github.com/cue-lang/cue/issues/1409
-			"\(name)": pathpkg.Join(["\(runtime.root)", f.path], pathpkg.Unix)
-		}
+	filesystem: [_]: {
+		path: _
+		absPath: pathpkg.Join([root, path], pathpkg.Unix)
 	}
 }
 
@@ -53,9 +53,6 @@ import (
 	// be filled in with incomplete entries specifying what env vars
 	// might be expected (which could also include constraints on their values)
 	environment: [string]: string
-
-	// root holds the root directory configured for gopm's filesystem.
-	root: *cwd | string
 
 	// cwd holds the current working directory.
 	cwd: string
@@ -160,13 +157,23 @@ import (
 
 #File: {
 	name:    =~"^\\w+$"
+	// path holds the path relative to the filesystem root.
 	path:    string & =~"."
 	content: string
+
+	// absPath is filled in automatically - it joins
+	// the filesystem root with the above path.
+	absPath: string
 }
 
-#ConfigWithDefaults: #Config & {
-	runtime: _
-	programs: [_]: #Program & {
+#WithDefaults: {
+	...
+
+	runtime: #RuntimeConfig
+
+	config: #Config
+	config: root: *runtime.cwd | _
+	config: programs: [_]: #Program & {
 		directory:                 *runtime.cwd | _
 		shell:                     *"/bin/sh" | _
 		exit_codes:                *[0, 2] | _

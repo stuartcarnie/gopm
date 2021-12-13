@@ -3,7 +3,8 @@
 # Start it up. Initial files should be created.
 gopm -c gopmconfig --quit-delay 0 &
 waitfile started.txt
-cmp foo/foo.txt expect-foo.txt
+cmpenv started.txt expect-started.txt
+cmpenv foo/foo.txt expect-foo.txt
 cmp bar.txt expect-bar.txt
 
 # Reload the configuration. New files should be created,
@@ -27,7 +28,7 @@ config: grpc_server: {
 }
 config: programs: sleeper: {
 	command: """
-		echo started > started.txt
+		echo started \(config.filesystem.foo.absPath) > started.txt
 
 		"""
 }
@@ -37,6 +38,7 @@ config: filesystem: {
 		path: "foo/foo.txt"
 		content: """
 			something
+			refer \(bar.absPath)
 
 			"""
 	}
@@ -79,8 +81,11 @@ config: filesystem: {
 	}
 }
 
+-- expect-started.txt --
+started $WORK/foo/foo.txt
 -- expect-foo.txt --
 something
+refer $WORK/bar.txt
 -- expect-bar.txt --
 other thing
 -- expect-bar-2.txt --

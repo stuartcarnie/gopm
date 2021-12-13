@@ -129,13 +129,13 @@ func (s *Supervisor) Reload() error {
 
 func (s *Supervisor) createFiles(newConfig *config.Config) {
 	// Make sure that the root dir always exists even if there are no files in it.
-	if err := os.MkdirAll(newConfig.Runtime.Root, 0o777); err != nil {
-		zap.L().Error("cannot create root", zap.String("path", newConfig.Runtime.Root), zap.Error(err))
+	if err := os.MkdirAll(newConfig.Root, 0o777); err != nil {
+		zap.L().Error("cannot create root", zap.String("path", newConfig.Root), zap.Error(err))
 		return
 	}
 	byPath := make(map[string]*config.File)
 	for _, f := range newConfig.FileSystem {
-		byPath[filepath.Join(newConfig.Runtime.Root, f.Path)] = f
+		byPath[filepath.Join(newConfig.Root, f.Path)] = f
 	}
 	for fpath := range s.fileSystem {
 		if byPath[fpath] == nil {

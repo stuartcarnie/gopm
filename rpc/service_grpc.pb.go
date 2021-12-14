@@ -31,6 +31,7 @@ type GopmClient interface {
 	SignalProcess(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SignalAllProcesses(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
 	DumpConfig(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DumpConfigResponse, error)
+	WatchState(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (Gopm_WatchStateClient, error)
 }
 
 type gopmClient struct {
@@ -172,6 +173,38 @@ func (c *gopmClient) DumpConfig(ctx context.Context, in *empty.Empty, opts ...gr
 	return out, nil
 }
 
+func (c *gopmClient) WatchState(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (Gopm_WatchStateClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Gopm_ServiceDesc.Streams[1], "/gopm.rpc.Gopm/WatchState", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &gopmWatchStateClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Gopm_WatchStateClient interface {
+	Recv() (*WatchStateResponse, error)
+	grpc.ClientStream
+}
+
+type gopmWatchStateClient struct {
+	grpc.ClientStream
+}
+
+func (x *gopmWatchStateClient) Recv() (*WatchStateResponse, error) {
+	m := new(WatchStateResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GopmServer is the server API for Gopm service.
 // All implementations must embed UnimplementedGopmServer
 // for forward compatibility
@@ -188,6 +221,7 @@ type GopmServer interface {
 	SignalProcess(context.Context, *SignalProcessRequest) (*empty.Empty, error)
 	SignalAllProcesses(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error)
 	DumpConfig(context.Context, *empty.Empty) (*DumpConfigResponse, error)
+	WatchState(*empty.Empty, Gopm_WatchStateServer) error
 	mustEmbedUnimplementedGopmServer()
 }
 
@@ -230,6 +264,9 @@ func (UnimplementedGopmServer) SignalAllProcesses(context.Context, *SignalProces
 }
 func (UnimplementedGopmServer) DumpConfig(context.Context, *empty.Empty) (*DumpConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DumpConfig not implemented")
+}
+func (UnimplementedGopmServer) WatchState(*empty.Empty, Gopm_WatchStateServer) error {
+	return status.Errorf(codes.Unimplemented, "method WatchState not implemented")
 }
 func (UnimplementedGopmServer) mustEmbedUnimplementedGopmServer() {}
 
@@ -463,6 +500,27 @@ func _Gopm_DumpConfig_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Gopm_WatchState_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(empty.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GopmServer).WatchState(m, &gopmWatchStateServer{stream})
+}
+
+type Gopm_WatchStateServer interface {
+	Send(*WatchStateResponse) error
+	grpc.ServerStream
+}
+
+type gopmWatchStateServer struct {
+	grpc.ServerStream
+}
+
+func (x *gopmWatchStateServer) Send(m *WatchStateResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Gopm_ServiceDesc is the grpc.ServiceDesc for Gopm service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -519,6 +577,11 @@ var Gopm_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "TailLog",
 			Handler:       _Gopm_TailLog_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "WatchState",
+			Handler:       _Gopm_WatchState_Handler,
 			ServerStreams: true,
 		},
 	},

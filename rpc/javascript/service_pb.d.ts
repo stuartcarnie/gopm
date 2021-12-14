@@ -231,6 +231,48 @@ export namespace TailLogResponse {
   }
 }
 
+export class WatchStateResponse extends jspb.Message {
+  getProcessesList(): Array<ProcessStateInfo>;
+  setProcessesList(value: Array<ProcessStateInfo>): WatchStateResponse;
+  clearProcessesList(): WatchStateResponse;
+  addProcesses(value?: ProcessStateInfo, index?: number): ProcessStateInfo;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WatchStateResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: WatchStateResponse): WatchStateResponse.AsObject;
+  static serializeBinaryToWriter(message: WatchStateResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): WatchStateResponse;
+  static deserializeBinaryFromReader(message: WatchStateResponse, reader: jspb.BinaryReader): WatchStateResponse;
+}
+
+export namespace WatchStateResponse {
+  export type AsObject = {
+    processesList: Array<ProcessStateInfo.AsObject>,
+  }
+}
+
+export class ProcessStateInfo extends jspb.Message {
+  getName(): string;
+  setName(value: string): ProcessStateInfo;
+
+  getState(): string;
+  setState(value: string): ProcessStateInfo;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ProcessStateInfo.AsObject;
+  static toObject(includeInstance: boolean, msg: ProcessStateInfo): ProcessStateInfo.AsObject;
+  static serializeBinaryToWriter(message: ProcessStateInfo, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ProcessStateInfo;
+  static deserializeBinaryFromReader(message: ProcessStateInfo, reader: jspb.BinaryReader): ProcessStateInfo;
+}
+
+export namespace ProcessStateInfo {
+  export type AsObject = {
+    name: string,
+    state: string,
+  }
+}
+
 export class SignalProcessRequest extends jspb.Message {
   getName(): string;
   setName(value: string): SignalProcessRequest;

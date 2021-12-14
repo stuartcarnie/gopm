@@ -91,6 +91,25 @@ func (s *Supervisor) DumpConfig(context.Context, *empty.Empty) (*rpc.DumpConfigR
 	}, nil
 }
 
+func (s *Supervisor) WatchState(_ *empty.Empty, stream rpc.Gopm_WatchStateServer) error {
+	err := s.procMgr.WatchState(stream.Context(), func(allState map[string]process.State) {
+		processes := make([]*rpc.ProcessStateInfo, 0, len(allState))
+		for name, state := range allState {
+			processes = append(processes, &rpc.ProcessStateInfo{
+				Name:  name,
+				State: state.String(),
+			})
+		}
+		sort.Slice(allState, func(i, j int) bool {
+			return processes[i].Name < processes[j].Name
+		})
+		stream.Send(&rpc.WatchStateResponse{
+			Processes: processes,
+		})
+	})
+	return mkError(err)
+}
+
 func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogServer) error {
 	err := s.procMgr.TailLog(stream.Context(), process.TailLogParams{
 		Name:         req.Name,

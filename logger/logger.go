@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -16,27 +17,50 @@ type Logger struct {
 	closed  bool
 }
 
-// New returns a logger that writes logs to the given file (if logFile is non-empty),
-// keeping log files near to the given maximum file size
-// and using a maximum of maxBacklog bytes of memory for the
-// backlog. Up to the given number of backup files (minimum 1)
-// will be retained.
-func New(logFile string, maxFileSize int64, maxBacklog int, backups int) *Logger {
+type Params struct {
+	// LogFile specifies the file to write to. If it's empty or "/dev/null"
+	// no file will be written to. If it's "/dev/stdout" or "/dev/stderr",
+	// output will be written to gopm's standard output or standard
+	// error respectively, each line prefixed with the specified prefix
+	// if that's non-empty.
+	LogFile string
+
+	// Prefix specifies the prefix to add to each line when LogFile
+	// is /dev/stdout or /dev/stderr.
+	Prefix string
+
+	// MaxFileSize specifies the approximate maximum file size
+	// of LogFile. The actual size can exceed this by one write's
+	// worth of data.
+	MaxFileSize int64
+
+	// MaxBacklog specifies the maximum number of bytes of memory
+	// to retain for the backlog.
+	MaxBacklog int
+
+	// Backups specifies the maximum number of backup files
+	// to retain.
+	Backups int
+}
+
+// New returns a logger that writes logs according to the given parameters.
+// See the Params docs for details.
+func New(p Params) *Logger {
 	l := &Logger{
 		buf: ringBuffer{
-			maxSize: maxBacklog,
+			maxSize: p.MaxBacklog,
 		},
 	}
 	var w io.WriteCloser
-	switch logFile {
+	switch p.LogFile {
 	case "/dev/stdout":
-		w = nopCloser{os.Stdout}
+		w = newPrefixWriter(os.Stdout, p.Prefix)
 	case "/dev/stderr":
-		w = nopCloser{os.Stderr}
+		w = newPrefixWriter(os.Stderr, p.Prefix)
 	case "/dev/null", "":
 		// Don't log at all.
 	default:
-		w1, err := newFileLogger(logFile, maxFileSize, backups)
+		w1, err := newFileLogger(p.LogFile, p.MaxFileSize, p.Backups)
 		if err != nil {
 			zap.L().Error("cannot create logger", zap.Error(err))
 		} else {
@@ -218,6 +242,48 @@ func isWriter(lw, w io.WriteCloser) bool {
 		return lw.w == w
 	}
 	return false
+}
+
+type prefixWriter struct {
+	prefix    []byte
+	w         io.Writer
+	lineStart bool
+}
+
+func newPrefixWriter(w io.Writer, prefix string) io.WriteCloser {
+	if prefix == "" {
+		return nopCloser{w}
+	}
+	return &prefixWriter{
+		prefix:    []byte(prefix),
+		w:         w,
+		lineStart: true,
+	}
+}
+
+func (w *prefixWriter) Write(buf0 []byte) (int, error) {
+	buf := buf0
+	for {
+		if len(buf) == 0 {
+			return len(buf0), nil
+		}
+		if w.lineStart {
+			w.w.Write(w.prefix)
+			w.lineStart = false
+		}
+		if i := bytes.IndexByte(buf, '\n'); i >= 0 {
+			w.w.Write(buf[:i+1])
+			w.lineStart = true
+			buf = buf[i+1:]
+		} else {
+			w.w.Write(buf)
+			return len(buf0), nil
+		}
+	}
+}
+
+func (w *prefixWriter) Close() error {
+	return nil
 }
 
 type nopCloser struct {

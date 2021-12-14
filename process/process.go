@@ -161,12 +161,13 @@ type process struct {
 
 func (p *process) run() {
 	p.zlog = zap.L().With(zap.String("prog", p.name))
-	p.logger = logger.New(
-		p.config.LogFile,
-		p.config.LogFileMaxBytes,
-		p.config.LogFileMaxBacklogBytes,
-		p.config.LogFileBackups,
-	)
+	p.logger = logger.New(logger.Params{
+		LogFile:     p.config.LogFile,
+		MaxFileSize: p.config.LogFileMaxBytes,
+		MaxBacklog:  p.config.LogFileMaxBacklogBytes,
+		Backups:     p.config.LogFileBackups,
+		Prefix:      p.name + ": ",
+	})
 	defer p.logger.Close()
 	timer := time.NewTimer(time.Minute)
 	timer.Stop()

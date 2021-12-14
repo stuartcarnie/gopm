@@ -291,12 +291,12 @@ type Program struct {
 	RestartPause            Duration          `json:"restart_pause"`
 	StartRetries            int               `json:"start_retries"`
 	StartSeconds            Duration          `json:"start_seconds"`
-	Cron                    CronSchedule      `json:"cron,omitempty"`
+	Cron                    *CronSchedule     `json:"cron,omitempty"`
 	AutoStart               bool              `json:"auto_start"`
 	AutoRestart             *bool             `json:"auto_restart,omitempty"`
 	RestartDirectoryMonitor string            `json:"restart_directory_monitor"`
 	RestartFilePattern      string            `json:"restart_file_pattern"`
-	StopSignals             []Signal          `json:"stop_signals"`
+	StopSignals             []Signal          `json:"stop_signals,omitempty"`
 	StopWaitSeconds         Duration          `json:"stop_wait_seconds"`
 	StopAsGroup             bool              `json:"stop_as_group"`
 	KillAsGroup             bool              `json:"kill_as_group"`
@@ -330,6 +330,10 @@ func (d *Duration) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
+func (d *Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.D.String())
+}
+
 type CronSchedule struct {
 	Schedule cron.Schedule
 	String   string
@@ -355,6 +359,10 @@ func (sched *CronSchedule) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (sched *CronSchedule) MarshalJSON() ([]byte, error) {
+	return json.Marshal(sched.String)
+}
+
 type Signal struct {
 	S      os.Signal
 	String string
@@ -372,6 +380,10 @@ func (s *Signal) UnmarshalJSON(data []byte) error {
 	s.S = sig
 	s.String = str
 	return nil
+}
+
+func (s *Signal) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String)
 }
 
 type ConfigError struct {

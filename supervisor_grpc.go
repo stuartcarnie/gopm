@@ -2,7 +2,9 @@ package gopm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -73,6 +75,18 @@ func (s *Supervisor) ReloadConfig(context.Context, *empty.Empty) (*rpc.ReloadCon
 	}
 
 	return &rpc.ReloadConfigResponse{}, nil
+}
+
+func (s *Supervisor) DumpConfig(context.Context, *empty.Empty) (*rpc.DumpConfigResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data, err := json.MarshalIndent(s.config, "", "\t")
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshal config: %v", err)
+	}
+	return &rpc.DumpConfigResponse{
+		ConfigJSON: string(data),
+	}, nil
 }
 
 func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogServer) error {

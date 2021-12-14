@@ -948,5 +948,85 @@ proto.gopm.rpc.GopmPromiseClient.prototype.signalAllProcesses =
 };
 
 
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.google.protobuf.Empty,
+ *   !proto.gopm.rpc.DumpConfigResponse>}
+ */
+const methodDescriptor_Gopm_DumpConfig = new grpc.web.MethodDescriptor(
+  '/gopm.rpc.Gopm/DumpConfig',
+  grpc.web.MethodType.UNARY,
+  google_protobuf_empty_pb.Empty,
+  proto.gopm.rpc.DumpConfigResponse,
+  /**
+   * @param {!proto.google.protobuf.Empty} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.DumpConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.google.protobuf.Empty,
+ *   !proto.gopm.rpc.DumpConfigResponse>}
+ */
+const methodInfo_Gopm_DumpConfig = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.gopm.rpc.DumpConfigResponse,
+  /**
+   * @param {!proto.google.protobuf.Empty} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.DumpConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.gopm.rpc.DumpConfigResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.gopm.rpc.DumpConfigResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.gopm.rpc.GopmClient.prototype.dumpConfig =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/gopm.rpc.Gopm/DumpConfig',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_DumpConfig,
+      callback);
+};
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.gopm.rpc.DumpConfigResponse>}
+ *     Promise that resolves to the response
+ */
+proto.gopm.rpc.GopmPromiseClient.prototype.dumpConfig =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/gopm.rpc.Gopm/DumpConfig',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_DumpConfig);
+};
+
+
 module.exports = proto.gopm.rpc;
 

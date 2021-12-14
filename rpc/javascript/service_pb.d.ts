@@ -167,6 +167,24 @@ export namespace ReloadConfigResponse {
   }
 }
 
+export class DumpConfigResponse extends jspb.Message {
+  getConfigjson(): string;
+  setConfigjson(value: string): DumpConfigResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DumpConfigResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: DumpConfigResponse): DumpConfigResponse.AsObject;
+  static serializeBinaryToWriter(message: DumpConfigResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): DumpConfigResponse;
+  static deserializeBinaryFromReader(message: DumpConfigResponse, reader: jspb.BinaryReader): DumpConfigResponse;
+}
+
+export namespace DumpConfigResponse {
+  export type AsObject = {
+    configjson: string,
+  }
+}
+
 export class TailLogRequest extends jspb.Message {
   getName(): string;
   setName(value: string): TailLogRequest;

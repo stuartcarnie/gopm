@@ -17,6 +17,7 @@ service Gopm {
     rpc TailLog(TailLogRequest) returns (stream TailLogResponse);
     rpc SignalProcess(SignalProcessRequest) returns (google.protobuf.Empty);
     rpc SignalAllProcesses(SignalProcessRequest) returns (ProcessInfoResponse);
+    rpc DumpConfig(google.protobuf.Empty) returns (DumpConfigResponse);
 }
 
 message VersionResponse {
@@ -57,6 +58,10 @@ message StartStopAllRequest {
 message ReloadConfigResponse {
     // Previous removed tags ended at 3.
     // TODO add multiple errors so that gopmctl can print them.
+}
+
+message DumpConfigResponse {
+	string ConfigJSON = 1;
 }
 
 message TailLogRequest {

@@ -1,40 +1,42 @@
 GO_TAGS =
-GO_ARGS = -tags "$(GO_TAGS)"
-GO_GENERATE=env go generate $(GO_ARGS)
-GO_BUILD=env go build $(GO_ARGS)
-GO_INSTALL=env go install $(GO_ARGS)
+GO = env go
 
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := install
 
-.PHONY: all
-all: bin/gopm bin/gopmctl
-
-.PHONY: generate
-generate: webgui/js/bundle.js
-	go generate ./...
-
-ifeq ($(RELEASE),1)
-RELEASE_TAG=release
+ifeq ($(GOPM_DEV),1)
+	DEV_TAG=dev
 endif
 
-webgui/js/bundle.js: rpc/javascript/gopm.ts rpc/javascript/service_grpc_web_pb.js rpc/javascript/service_pb.js
-	cd rpc/javascript && npx webpack
-
-bin/gopm: GO_TAGS += $(RELEASE_TAG)
-bin/gopm: ./cmd/gopm
-	$(GO_GENERATE)
-	$(GO_BUILD) -o $@ ./$<
-
-bin/gopmctl: ./cmd/gopmctl
-	$(GO_BUILD) -o $@ ./$<
-
 .PHONY: install
-install: GO_TAGS += release
 install:
-	$(GO_GENERATE)
-	$(GO_INSTALL) ./cmd/gopm
-	$(GO_INSTALL) ./cmd/gopmctl
+	mkdir -p bin
+	$(GO) build -tags "$(DEV_TAG)" -o bin ./...
+
+# The install-dev target builds an executable that reads the webgui
+# directory from disk rather than building it as an asset into the binary.
+.PHONY: install-dev
+install-dev:
+	mkdir -p bin
+	$(GO) build -tags dev -o bin ./...
+
+.PHONY: test
+test:
+	$(GO) test ./...
+
+.PHONY: all
+all: generate install
+
+.PHONY: generate
+generate: go-generate webgui/js/bundle.js
+	true
+
+.PHONY: go-generate
+go-generate:
+	$(GO) generate ./...
 
 .PHONY: clean
 clean:
 	rm -rf bin/
+
+webgui/js/bundle.js: rpc/javascript/gopm.ts rpc/javascript/service_grpc_web_pb.js rpc/javascript/service_pb.js
+	cd rpc/javascript && npx webpack

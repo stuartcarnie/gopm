@@ -3,7 +3,8 @@
 # Start it up. Initial files should be created.
 gopm -c gopmconfig --quit-delay 0 &
 waitfile started.txt
-cmp foo/foo.txt expect-foo.txt
+cmpenv started.txt expect-started.txt
+cmpenv foo/foo.txt expect-foo.txt
 cmp bar.txt expect-bar.txt
 
 # Reload the configuration. New files should be created,
@@ -21,23 +22,23 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: sleeper: {
-	directory: "progdir"
+config: programs: sleeper: {
 	command: """
-		echo started > started.txt
+		echo started \(config.filesystem.foo.absPath) > started.txt
 
 		"""
 }
 
-filesystem: {
+config: filesystem: {
 	foo: {
 		path: "foo/foo.txt"
 		content: """
 			something
+			refer \(bar.absPath)
 
 			"""
 	}
@@ -53,18 +54,17 @@ filesystem: {
 -- config2.cue --
 package config
 
-grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: sleeper: {
-	directory: "progdir"
+config: programs: sleeper: {
 	command: """
 		echo started > started.txt
 
 		"""
 }
-filesystem: {
+config: filesystem: {
 	bar: {
 		path: "bar.txt"
 		content: """
@@ -81,8 +81,11 @@ filesystem: {
 	}
 }
 
+-- expect-started.txt --
+started $WORK/foo/foo.txt
 -- expect-foo.txt --
 something
+refer $WORK/bar.txt
 -- expect-bar.txt --
 other thing
 -- expect-bar-2.txt --

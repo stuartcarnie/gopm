@@ -2,8 +2,10 @@ package gopm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"os"
+	"fmt"
+	"sort"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -58,13 +60,12 @@ func (s *Supervisor) StopAllProcesses(_ context.Context, req *rpc.StartStopAllRe
 }
 
 func (s *Supervisor) Shutdown(context.Context, *empty.Empty) (*empty.Empty, error) {
-	// TODO(sgc): This is not right
-	s.procMgr.StopAllProcesses()
-	go func() {
-		time.Sleep(1 * time.Second)
-		os.Exit(0)
-	}()
-
+	s.mu.Lock()
+	if s.done != nil {
+		close(s.done)
+		s.done = nil
+	}
+	s.mu.Unlock()
 	return &empty.Empty{}, nil
 }
 
@@ -73,10 +74,18 @@ func (s *Supervisor) ReloadConfig(context.Context, *empty.Empty) (*rpc.ReloadCon
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &rpc.ReloadConfigResponse{
-		AddedGroup:   nil,
-		ChangedGroup: nil,
-		RemovedGroup: nil,
+	return &rpc.ReloadConfigResponse{}, nil
+}
+
+func (s *Supervisor) DumpConfig(context.Context, *empty.Empty) (*rpc.DumpConfigResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data, err := json.MarshalIndent(s.config, "", "\t")
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshal config: %v", err)
+	}
+	return &rpc.DumpConfigResponse{
+		ConfigJSON: string(data),
 	}, nil
 }
 
@@ -127,7 +136,7 @@ func (s *Supervisor) SignalAllProcesses(_ context.Context, req *rpc.SignalProces
 
 func (s *Supervisor) allProcesses() *rpc.ProcessInfoResponse {
 	infos := s.procMgr.AllProcessInfo()
-	rpcInfos := make(rpc.ProcessInfos, len(infos))
+	rpcInfos := make([]*rpc.ProcessInfo, len(infos))
 	for i, info := range infos {
 		rpcInfos[i] = &rpc.ProcessInfo{
 			Name:        info.Name,
@@ -141,7 +150,9 @@ func (s *Supervisor) allProcesses() *rpc.ProcessInfoResponse {
 			Pid:         int64(info.Pid),
 		}
 	}
-	rpcInfos.SortByName()
+	sort.Slice(rpcInfos, func(i, j int) bool {
+		return rpcInfos[i].Name < rpcInfos[j].Name
+	})
 	return &rpc.ProcessInfoResponse{
 		Processes: rpcInfos,
 	}

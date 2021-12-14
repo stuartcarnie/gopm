@@ -3,16 +3,17 @@ package gopmctlcmd
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
+	"google.golang.org/grpc"
+
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/procusage"
 	"github.com/stuartcarnie/gopm/rpc"
-	"google.golang.org/grpc"
 )
 
 type Control struct {
@@ -28,6 +29,8 @@ var (
 	rootCmd = cobra.Command{
 		Use: "gopmctl",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// When all flags have parsed OK, don't show usage info.
+			cmd.SilenceUsage = true
 			return control.initializeClient()
 		},
 	}
@@ -36,22 +39,22 @@ var (
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&control.Configuration, "config", "c", "", "Configuration file")
 	rootCmd.PersistentFlags().StringVar(&control.Address, "addr", "localhost:9002", "gopm server address")
-	rootCmd.AddCommand(&statusCmd)
-	rootCmd.AddCommand(&tailLogCmd)
-	rootCmd.AddCommand(&signalCmd)
-	rootCmd.AddCommand(&startCmd)
-	rootCmd.AddCommand(&stopCmd)
-	rootCmd.AddCommand(&restartCmd)
+	rootCmd.AddCommand(&dumpConfigCmd)
 	rootCmd.AddCommand(&reloadCmd)
+	rootCmd.AddCommand(&restartCmd)
 	rootCmd.AddCommand(&shutdownCmd)
-	rootCmd.AddCommand(&stopAllCmd)
+	rootCmd.AddCommand(&signalCmd)
 	rootCmd.AddCommand(&startAllCmd)
+	rootCmd.AddCommand(&startCmd)
+	rootCmd.AddCommand(&statusCmd)
+	rootCmd.AddCommand(&stopAllCmd)
+	rootCmd.AddCommand(&stopCmd)
+	rootCmd.AddCommand(&tailLogCmd)
 	rootCmd.AddCommand(&topCmd)
 }
 
 func Main() int {
 	if err := rootCmd.Execute(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	return 0
@@ -71,7 +74,7 @@ func (ctl *Control) getServerURL() string {
 	if ctl.Address != "" {
 		return ctl.Address
 	} else if _, err := os.Stat(ctl.Configuration); err == nil {
-		cfg, err := config.Load(ctl.Configuration, "")
+		cfg, err := config.Load(ctl.Configuration)
 		if err == nil {
 			// TODO return error from getServerURL
 			svr := cfg.GRPCServer
@@ -88,47 +91,31 @@ func (ctl *Control) getServerURL() string {
 
 func (ctl *Control) printProcessInfo(res *rpc.ProcessInfoResponse, processes map[string]bool) {
 	tw := tabwriter.NewWriter(os.Stdout, 20, 4, 5, ' ', 0)
-	state := func(s string) aurora.Value {
-		switch strings.ToUpper(s) {
-		case "RUNNING":
-			return aurora.Green(s)
+	state := func(s string) string {
+		return s
+	}
+	if useColor() {
+		state = func(s string) string {
+			var av aurora.Value
+			switch strings.ToUpper(s) {
+			case "RUNNING":
+				av = aurora.Green(s)
 
-		case "BACKOFF", "FATAL":
-			return aurora.Red(s)
+			case "BACKOFF", "FATAL":
+				av = aurora.Red(s)
 
-		default:
-			return aurora.Yellow(s)
+			default:
+				av = aurora.Yellow(s)
+			}
+			return av.String()
 		}
 	}
 	for _, pinfo := range res.Processes {
-		if ctl.inProcessMap(pinfo, processes) {
-			processName := pinfo.GetFullName()
-			_, _ = fmt.Fprintln(tw, strings.Join([]string{processName, state(pinfo.State).String(), pinfo.Description}, "\t"))
+		if processes == nil || processes[pinfo.Name] {
+			fmt.Fprintf(tw, "%s\t%v\n", pinfo.Name, state(pinfo.State))
 		}
 	}
 	tw.Flush()
-}
-
-func (ctl *Control) inProcessMap(procInfo *rpc.ProcessInfo, processesMap map[string]bool) bool {
-	if len(processesMap) <= 0 {
-		return true
-	}
-	for procName := range processesMap {
-		if procName == procInfo.Name || procName == procInfo.GetFullName() {
-			return true
-		}
-
-		// check the wildcard '*'
-		pos := strings.Index(procName, ":")
-		if pos != -1 {
-			groupName := procName[0:pos]
-			programName := procName[pos+1:]
-			if programName == "*" && groupName == procInfo.Group {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 type processResourceUsage struct {
@@ -139,14 +126,18 @@ type processResourceUsage struct {
 func (ctl *Control) printTop(processes []*processResourceUsage) {
 	tw := tabwriter.NewWriter(os.Stdout, 10, 4, 5, ' ', 0)
 	for _, p := range processes {
-		_, _ = fmt.Fprintln(tw, strings.Join([]string{
-			p.GetFullName(),
-			strconv.Itoa(int(p.Pid)),
-			fmt.Sprintf("%.1f%%", p.Usage.CPU),
-			fmt.Sprintf("%s (%.1f%%)", p.Usage.HumanResident(), p.Usage.Memory),
-		},
-			"\t",
-		))
+		fmt.Fprintf(tw, "%s\t%d\t%.1f%%\t%s (%.1f%%)\n",
+			p.Name,
+			p.Pid,
+			p.Usage.CPU,
+			p.Usage.HumanResident(),
+			p.Usage.Memory,
+		)
 	}
 	tw.Flush()
+}
+
+func useColor() bool {
+	noColor := os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" || !term.IsTerminal(int(os.Stderr.Fd()))
+	return !noColor
 }

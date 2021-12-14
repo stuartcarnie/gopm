@@ -4,21 +4,46 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
+	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/load"
 	"github.com/robfig/cron/v3"
+
+	"github.com/stuartcarnie/gopm/signals"
+)
+
+var (
+	pathWithDefaults = cue.MakePath(cue.Def("#WithDefaults"))
+	pathRuntime      = cue.MakePath(cue.Str("runtime"))
+	pathConfig       = cue.MakePath(cue.Str("config"))
 )
 
 // Load loads the configuration at the given directory and returns it.
-// If root isn't empty, it configures the location of the filesystem root.
-func Load(configDir string, root string) (*Config, error) {
+// On error, the error value may contain an Error value
+// containing multiple errors.
+func Load(configDir string) (*Config, error) {
+	cfg, err := load0(configDir)
+	if err == nil {
+		return cfg, nil
+	}
+	if errors.As(err, new(errors.Error)) {
+		err = &ConfigError{
+			err: err,
+		}
+	}
+	return nil, err
+}
+
+func load0(configDir string) (*Config, error) {
 	info, err := os.Stat(configDir)
 	if err != nil {
 		return nil, err
@@ -31,10 +56,12 @@ func Load(configDir string, root string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !filepath.IsAbs(configDir) {
+		configDir = filepath.Join(wd, configDir)
+	}
 	// runtime holds the values that are provided to the configuration
 	// from which everything else derives.
 	runtime := &RuntimeConfig{
-		Root:        root,
 		CWD:         wd,
 		Environment: make(map[string]string),
 	}
@@ -47,111 +74,164 @@ func Load(configDir string, root string) (*Config, error) {
 	// as we haven't yet unified with the runtime config.
 	ctx := cuecontext.New()
 	insts := load.Instances([]string{"."}, &load.Config{
-		Dir: filepath.Join(wd, configDir),
+		Dir: configDir,
 	})
 	for _, inst := range insts {
 		if err := inst.Err; err != nil {
-			// TODO print to log file instead of directly to stderr.
-			errors.Print(os.Stderr, err, nil)
-			return nil, err
+			return nil, fmt.Errorf("cannot load CUE instances in %q: %w", configDir, err)
 		}
 	}
 	vals, err := ctx.BuildInstances(insts)
 	if err != nil {
-		return nil, fmt.Errorf("cannot build instances: %v", err)
+		return nil, fmt.Errorf("cannot build instances: %w", err)
 	}
 	if len(vals) != 1 {
 		return nil, fmt.Errorf("wrong value count")
+	}
+	val := vals[0]
+	if err := val.Err(); err != nil {
+		return nil, fmt.Errorf("cannot build configuration: %w", err)
+	}
+	// Make sure the config value is there before we fill it in with
+	// our own schema.
+	if val := val.LookupPath(pathConfig); val.Err() != nil {
+		return nil, fmt.Errorf("cannot get \"gopm\" value containing configuration: %w", err)
 	}
 
 	// Load the schema and defaults from our embedded CUE file (see schema.cue).
 	lschema, err := getLocalSchema(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get local schema: %v", err)
+		return nil, fmt.Errorf("cannot get local schema: %w", err)
 	}
-
 	// Unify the user's configuration with the schema.
-	val := vals[0].Unify(lschema.config)
+	val = val.Unify(lschema)
 
 	// Fill in the runtime config, which should complete everything.
-	val = val.FillPath(cue.ParsePath("runtime"), runtime)
+	val = val.FillPath(pathRuntime, runtime)
 
 	// Check that it's all OK.
-	if err := val.Validate(cue.Concrete(true)); err != nil {
-		// TODO print to log file instead of directly to stderr.
-		errors.Print(os.Stderr, err, nil)
-		return nil, fmt.Errorf("config validation failed: %v", err)
+	if err := val.Validate(
+		cue.Attributes(true),
+		cue.Definitions(true),
+		cue.Hidden(true),
+		cue.Concrete(true),
+	); err != nil {
+		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
+
+	// Get completed configuration.
+	// Note: do this after validation because if we do it before,
+	// we can hide useful error messages.
+	val = val.LookupPath(pathConfig)
 
 	// Export to JSON, then reimport, so we can apply our own defaults without
 	// conflicting with any defaults applied by the user's configuration.
 	data, err := val.MarshalJSON()
 	if err != nil {
-		return nil, fmt.Errorf("cannot marshal: %v", err)
+		return nil, fmt.Errorf("cannot marshal: %w", err)
 	}
-
 	val = ctx.Encode(json.RawMessage(data))
 	if err := val.Err(); err != nil {
-		return nil, fmt.Errorf("cannot reencode configuration as CUE: %v", err)
+		return nil, fmt.Errorf("cannot reencode configuration as CUE: %w", err)
 	}
 
-	// Apply our local defaults.
-	val = val.Unify(lschema.defaults)
+	// Get the local defaults and apply the completed config to them.
+	val = lschema.LookupPath(pathWithDefaults).FillPath(pathConfig, val)
+	if err := val.Err(); err != nil {
+		return nil, fmt.Errorf("cannot fill out defaults: %w", err)
+	}
+	val = val.FillPath(pathRuntime, runtime)
+	if err := val.Err(); err != nil {
+		return nil, fmt.Errorf("cannot fill runtime: %w", err)
+	}
+
+	// Decode into the final Config value.
+	var cfg Config
+	if err := val.LookupPath(pathConfig).Decode(&cfg); err != nil {
+		return nil, fmt.Errorf("cannot decode into config: %w", err)
+	}
 
 	// TODO check for path conflicts in files (or we could do that in the schema, I guess,
 	// although the error report would be more opaque).
 
-	// Decode into the final Config value.
-	var cfg Config
-	if err := val.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("cannot decode into config: %v", err)
-	}
-
 	if err := cfg.verifyDependencies(); err != nil {
 		return nil, err
+	}
+	if cfg.GRPCServer == nil && cfg.HTTPServer == nil {
+		return nil, fmt.Errorf("configuration in %q must specify at least one of grpc_server or http_server", configDir)
 	}
 	return &cfg, nil
 }
 
+// verifiyDependencies verifies the program depends_on fields
+// and also populates the TopoSortedPrograms field.
 func (cfg *Config) verifyDependencies() error {
+	if err := cfg.checkDepsExist(); err != nil {
+		return err
+	}
+	sorted, cycles := topoSort(cfg.Programs)
+	if len(cycles) > 0 {
+		return fmt.Errorf("cycles detected in program dependencies: %v", dumpCycles(cycles))
+	}
+	// This is a horrible O(>n^2) algorithm but n is gonna be very small.
+	// What's the name for what this is doing anyway?
+	var sortedProgs [][]*Program
+	for i := 0; i < len(sorted); i++ {
+		if sorted[i] == "" {
+			// It's already been taken.
+			continue
+		}
+		cohort := make([]*Program, 0, 1)
+		cohortSet := make(map[*Program]bool)
+		// Take all the programs that don't have dependencies on
+		// the current cohort.
+		for j := i; j < len(sorted); j++ {
+			if sorted[j] == "" {
+				continue
+			}
+			p := cfg.Programs[sorted[j]]
+			if !cfg.dependsOn(p, cohortSet) {
+				cohort = append(cohort, p)
+				cohortSet[p] = true
+				sorted[j] = ""
+			}
+		}
+		// Sort for consistency.
+		sort.Slice(cohort, func(i, j int) bool {
+			return cohort[i].Name < cohort[j].Name
+		})
+		sortedProgs = append(sortedProgs, cohort)
+	}
+	cfg.TopoSortedPrograms = sortedProgs
+	return nil
+}
+
+func (cfg *Config) checkDepsExist() error {
 	for _, p := range cfg.Programs {
-		if err := cfg.checkCycle(p, make(map[*Program]bool)); err != nil {
-			return err
+		for _, dep := range p.DependsOn {
+			if cfg.Programs[dep] == nil {
+				return fmt.Errorf("program %q has dependency on non-existent program %q", p.Name, dep)
+			}
 		}
 	}
 	return nil
 }
 
-func (cfg *Config) checkCycle(p *Program, visiting map[*Program]bool) error {
-	visiting[p] = true
-	for _, dep := range p.DependsOn {
-		p1 := cfg.Programs[dep]
-		if p1 == nil {
-			return fmt.Errorf("program %q has dependency on non-existent program %q", p.Name, dep)
-		}
-		if visiting[p1] {
-			return fmt.Errorf("cyclic dependency involving %q and %q", p.Name, p1.Name)
-		}
-		if err := cfg.checkCycle(p1, visiting); err != nil {
-			return err
-		}
+func dumpCUE(what string, val cue.Value) {
+	node := val.Syntax(cue.Hidden(true), cue.Docs(true), cue.Optional(true), cue.Definitions(true), cue.Attributes(true))
+	data, err := format.Node(node, format.TabIndent(true))
+	if err != nil {
+		log.Printf("%s: cannot dump: %v", what, node)
+		return
 	}
-	visiting[p] = false
-	return nil
-}
-
-type localSchema struct {
-	// config holds the #Config definition
-	config cue.Value
-	// defaults holds the #Defaults definition.
-	defaults cue.Value
+	log.Printf("%s:\n%s\n", what, data)
 }
 
 //go:embed schema.cue
 var schema []byte
 
 // getLocalSchema returns the schema info from schema.cue.
-func getLocalSchema(ctx *cue.Context) (*localSchema, error) {
+func getLocalSchema(ctx *cue.Context) (cue.Value, error) {
 	insts := load.Instances([]string{"/schema.cue"}, &load.Config{
 		Overlay: map[string]load.Source{
 			"/schema.cue": load.FromBytes(schema),
@@ -159,37 +239,33 @@ func getLocalSchema(ctx *cue.Context) (*localSchema, error) {
 	})
 	vals, err := ctx.BuildInstances(insts)
 	if err != nil {
-		return nil, fmt.Errorf("cannot build instances for local schema: %v", err)
+		return cue.Value{}, fmt.Errorf("cannot build instances for local schema: %w", err)
 	}
 	if len(vals) != 1 {
-		return nil, fmt.Errorf("expected 1 value, got %d", len(insts))
+		return cue.Value{}, fmt.Errorf("expected 1 value, got %d", len(insts))
 	}
-	val := vals[0]
-	configDef := val.LookupPath(cue.MakePath(cue.Def("#Config")))
-	if err := configDef.Err(); err != nil {
-		return nil, fmt.Errorf("cannot get #Config: %v", err)
-	}
-	defaultsDef := val.LookupPath(cue.MakePath(cue.Def("#ConfigWithDefaults")))
-	if err := configDef.Err(); err != nil {
-		return nil, fmt.Errorf("cannot get #ConfigWithDefaults: %v", err)
-	}
-	return &localSchema{
-		config:   configDef,
-		defaults: defaultsDef,
-	}, nil
+	return vals[0], nil
 }
 
 // Config defines the gopm configuration data.
 type Config struct {
-	// Runtime is provided to the user in order that they
-	// can fill out the rest of their configuration.
-	Runtime RuntimeConfig `json:"runtime"`
+	// Root holds the root of the filesystem.
+	Root string `json:"root"`
 
 	Environment map[string]string   `json:"environment"`
 	HTTPServer  *Server             `json:"http_server"`
 	GRPCServer  *Server             `json:"grpc_server"`
 	Programs    map[string]*Program `json:"programs"`
 	FileSystem  map[string]*File    `json:"filesystem"`
+
+	// TopoSortedPrograms holds all the programs in topologically
+	// sorted order (children before parents). It's populated
+	// after reading the configuration.
+	// Each element in the slice a slice of independent programs:
+	// that is, all the programs in TopoSortedPrograms[i] must
+	// started before all the programs in TopoSortedPrograms[i+1]
+	// but there's no relationship between them.
+	TopoSortedPrograms [][]*Program `json:"-"`
 }
 
 type File struct {
@@ -200,7 +276,6 @@ type File struct {
 
 type RuntimeConfig struct {
 	Environment map[string]string `json:"environment"`
-	Root        string            `json:"root,omitempty"`
 	CWD         string            `json:"cwd"`
 }
 
@@ -208,6 +283,7 @@ type Program struct {
 	Name                    string            `json:"name"`
 	Directory               string            `json:"directory"`
 	Command                 string            `json:"command"`
+	Description             string            `json:"description,omitempty"`
 	Shell                   string            `json:"shell"`
 	Environment             map[string]string `json:"environment"`
 	User                    string            `json:"user"`
@@ -215,18 +291,19 @@ type Program struct {
 	RestartPause            Duration          `json:"restart_pause"`
 	StartRetries            int               `json:"start_retries"`
 	StartSeconds            Duration          `json:"start_seconds"`
-	Cron                    CronSchedule      `json:"cron,omitempty"`
+	Cron                    *CronSchedule     `json:"cron,omitempty"`
 	AutoStart               bool              `json:"auto_start"`
 	AutoRestart             *bool             `json:"auto_restart,omitempty"`
 	RestartDirectoryMonitor string            `json:"restart_directory_monitor"`
 	RestartFilePattern      string            `json:"restart_file_pattern"`
-	StopSignals             []string          `json:"stop_signals"`
+	StopSignals             []Signal          `json:"stop_signals,omitempty"`
 	StopWaitSeconds         Duration          `json:"stop_wait_seconds"`
 	StopAsGroup             bool              `json:"stop_as_group"`
 	KillAsGroup             bool              `json:"kill_as_group"`
 	LogFile                 string            `json:"logfile"`
-	LogfileBackups          int               `json:"logfile_backups"`
-	LogFileMaxBytes         int               `json:"logfile_max_bytes"`
+	LogFileBackups          int               `json:"logfile_backups"`
+	LogFileMaxBytes         int64             `json:"logfile_max_bytes"`
+	LogFileMaxBacklogBytes  int               `json:"logfile_max_backlog_bytes"`
 	DependsOn               []string          `json:"depends_on"`
 	Labels                  map[string]string `json:"labels"`
 }
@@ -253,6 +330,10 @@ func (d *Duration) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
+func (d *Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.D.String())
+}
+
 type CronSchedule struct {
 	Schedule cron.Schedule
 	String   string
@@ -276,4 +357,56 @@ func (sched *CronSchedule) UnmarshalJSON(data []byte) error {
 	sched.Schedule = schedule
 	sched.String = s
 	return nil
+}
+
+func (sched *CronSchedule) MarshalJSON() ([]byte, error) {
+	return json.Marshal(sched.String)
+}
+
+type Signal struct {
+	S      os.Signal
+	String string
+}
+
+func (s *Signal) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	sig, err := signals.ToSignal(str)
+	if err != nil {
+		return err
+	}
+	s.S = sig
+	s.String = str
+	return nil
+}
+
+func (s *Signal) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String)
+}
+
+type ConfigError struct {
+	err error
+}
+
+func (err *ConfigError) Error() string {
+	return err.err.Error()
+}
+
+// AllErrors returns information on all the errors encountered
+// when parsing the configuration. It returns the empty string
+// if the error wasn't because of parsing the config.
+func (err *ConfigError) AllErrors() string {
+	var buf strings.Builder
+	var cueErr errors.Error
+	if !errors.As(err.err, &cueErr) {
+		return ""
+	}
+	errors.Print(&buf, cueErr, nil)
+	return buf.String()
+}
+
+func (err *ConfigError) Unwrap() error {
+	return err.err
 }

@@ -21,7 +21,7 @@
         field: 'name',
         title: 'Program'
     }, {
-        field: 'statename',
+        field: 'state',
         title: 'State'
     }, {
         field: 'description',
@@ -35,10 +35,10 @@
 
     let client = new gopm.GopmPromiseClient(window.location.origin);
 
-    function updateProcessState(name, statename) {
+    function updateProcessState(name, state) {
         for (const prog of programs) {
             if (name === prog['name']) {
-                prog['statename'] = statename;
+                prog['state'] = state;
             }
         }
     }
@@ -128,10 +128,10 @@
 
     function reformatProcesses(processes) {
         for (const proc of processes) {
-            const statename = proc['statename'];
+            const state = proc['state'];
             let action = "";
             let color = "";
-            if (statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf("starting") >= 0) {
+            if (state.toLowerCase().indexOf("running") >= 0 || state.toLowerCase().indexOf("starting") >= 0) {
                 action = `<button type="button" disabled class="btn btn-primary mr-1" onclick="startProcess('${proc['name']}');">Start</button>`;
                 action = action + `<button type="button" class="btn btn-primary mr-1" onclick="stopProcess('${proc['name']}');">Stop</button>`;
                 color = "green";
@@ -144,7 +144,7 @@
             action = action + `<button type="button" class="btn btn-primary" onclick="restartProcess('${proc['name']}');">Restart</button>`;
 
             proc['action'] = action;
-            proc['statename'] = `<div style="background-color:${color};">${statename}</div>`;
+            proc['state'] = `<div style="background-color:${color};">${state}</div>`;
         }
     }
 
@@ -246,7 +246,7 @@
                 programs = res.getProcessesList().map(i => ({
                     "name": i.getName(),
                     "description": i.getDescription(),
-                    "statename": i.getStateName(),
+                    "state": i.getState(),
                 }));
                 refreshDisplay();
             } catch (e) {
@@ -280,7 +280,7 @@
             <thead>
             <th data-field="id" data-checkbox="true"></th>
             <th data-field="name">Program</th>
-            <th data-field="statename">State</th>
+            <th data-field="state">State</th>
             <th data-field="description">Description</th>
             <th data-field="action">Action</th>
             </thead>

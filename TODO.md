@@ -1,0 +1,11 @@
+- [ ] respect topological order when stopping processes on request
+- [ ] find configuration file automatically if none is explicitly specified
+- [ ] `gopm init` command to initialize a configuration file
+- [ ] support individual config file rather than just directory?
+- [ ] provide `gopm` package as overlay when reading configuration so users don't need to explicitly vendor it (and risk it getting out of date)
+- [ ] rename `gopm` package so the identifier doesn't clash with the `gopm` top level value (or rename that value to something else)
+- [ ] set user ID when specified
+- [ ] print configuration errors consistently and return them all via gRPC so that a `gopmctl reload` command will see them
+- [ ] documentation!
+- [ ] add `-a` (`--all`) flag to `gopmctl logs` command to print all the available logs for a process
+

@@ -1,0 +1,45 @@
+# Test that we can restart a program.
+gopm -c gopmconfig --quit-delay 0 &
+waitfile gopm.socket
+waitfile started1.txt
+waitfile started2.txt
+rm started1.txt started2.txt
+gopmctl --addr unix:gopm.socket restart sleeper
+
+# The sleeper process should be interrupted to shut it down
+waitfile intr1.txt
+
+# The other process should not.
+! waitfile intr2.txt
+
+# The sleeper process should start again.
+waitfile started1.txt
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+# Both processes should shut down cleanly in the end.
+exists intr1.txt
+exists intr2.txt
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: sleeper: {
+	command: """
+		trap ":" INT
+		interrupt-notify started1.txt intr1.txt
+		sleep 15
+		"""
+	stop_wait_seconds: "1s"
+}
+config: programs: unaffected: {
+	command: """
+		interrupt-notify started2.txt intr2.txt
+		"""
+	logfile: "/dev/stderr"
+}

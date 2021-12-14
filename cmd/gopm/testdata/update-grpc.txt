@@ -15,19 +15,18 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: sleeper: {
+config: programs: sleeper: {
 	command: "echo started > started.txt"
-	directory: "progdir"
 }
 
 -- config2.cue --
 package config
 
-grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm2.socket"
 }

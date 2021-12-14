@@ -1,18 +1,18 @@
 # Test that a configuration with dependencies that don't exist is an error
 
 # Start it up. It should fail immediately with an error.
-gopm -c gopmconfig --quit-delay 0 &
+! gopm -c gopmconfig --quit-delay 0 &
 wait
 stderr 'Error loading configuration  	error:program "a" has dependency on non-existent program "b"'
 
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: {
+config: programs: {
 	a: {
 		command: " "
 		depends_on: ["b"]

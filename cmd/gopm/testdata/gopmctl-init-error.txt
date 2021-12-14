@@ -1,0 +1,5 @@
+! gopmctl --addr bad:address status
+cmp stderr expect-stderr
+
+-- expect-stderr --
+Error: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp: lookup tcp/address: Servname not supported for ai_socktype"

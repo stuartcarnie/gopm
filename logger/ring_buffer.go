@@ -1,4 +1,4 @@
-package process
+package logger
 
 import (
 	"bytes"
@@ -11,23 +11,6 @@ type ringBuffer struct {
 	data    []byte
 	maxSize int
 	p       int64
-}
-
-// newRingBuffer creates a new ringBuffer with the given
-// maximum size in bytes.
-func newRingBuffer(maxSize int) *ringBuffer {
-	return &ringBuffer{
-		maxSize: maxSize,
-	}
-}
-
-// Empty zeroes the buffer.
-func (l *ringBuffer) Empty() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	l.p = 0
-	l.data = l.data[:0]
 }
 
 // Write writes data to the ringBuffer.
@@ -66,13 +49,13 @@ func (l *ringBuffer) Write(b []byte) (int, error) {
 	return nw, nil
 }
 
-// Bytes returns a byte slice containing all data written to the buffer
+// bytes returns a byte slice containing all data written to the buffer
 // and the number of bytes before it that have been discarded because of
 // the buffer's size limit.
 //
 // We trim the output to the first newline character (if we can find
 // one) in order to keep the output looking nice.
-func (l *ringBuffer) Bytes() (int64, []byte) {
+func (l *ringBuffer) bytes() (int64, []byte) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

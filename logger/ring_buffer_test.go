@@ -1,4 +1,4 @@
-package process
+package logger
 
 import (
 	"testing"
@@ -8,7 +8,9 @@ import (
 )
 
 func TestBacklog_MultipleWrites(t *testing.T) {
-	b := newRingBuffer(8)
+	b := &ringBuffer{
+		maxSize: 8,
+	}
 	n, err := b.Write([]byte("hello world\n"))
 	require.NoError(t, err)
 	assert.Equal(t, 12, n)
@@ -16,18 +18,20 @@ func TestBacklog_MultipleWrites(t *testing.T) {
 	n, err = b.Write([]byte("more\n"))
 	require.NoError(t, err)
 	assert.Equal(t, 5, n)
-	p, data := b.Bytes()
+	p, data := b.bytes()
 	assert.Equal(t, p, int64(12))
 	assert.Equal(t, "more\n", string(data))
 }
 
 func TestBacklog_NewlineAtEndOfBuffer(t *testing.T) {
-	b := newRingBuffer(10)
+	b := &ringBuffer{
+		maxSize: 10,
+	}
 	content := "hello world\nhello world\n"
 	n, err := b.Write([]byte(content))
 	require.NoError(t, err)
 	assert.Equal(t, 24, n)
-	p, data := b.Bytes()
+	p, data := b.bytes()
 	assert.Equal(t, int64(len(content)), p)
 	assert.Equal(t, "", string(data))
 }

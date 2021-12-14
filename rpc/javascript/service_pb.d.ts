@@ -45,9 +45,6 @@ export class ProcessInfo extends jspb.Message {
   getName(): string;
   setName(value: string): ProcessInfo;
 
-  getGroup(): string;
-  setGroup(value: string): ProcessInfo;
-
   getDescription(): string;
   setDescription(value: string): ProcessInfo;
 
@@ -86,7 +83,6 @@ export class ProcessInfo extends jspb.Message {
 export namespace ProcessInfo {
   export type AsObject = {
     name: string,
-    group: string,
     description: string,
     start: number,
     stop: number,
@@ -158,21 +154,6 @@ export namespace StartStopAllRequest {
 }
 
 export class ReloadConfigResponse extends jspb.Message {
-  getAddedGroupList(): Array<string>;
-  setAddedGroupList(value: Array<string>): ReloadConfigResponse;
-  clearAddedGroupList(): ReloadConfigResponse;
-  addAddedGroup(value: string, index?: number): ReloadConfigResponse;
-
-  getChangedGroupList(): Array<string>;
-  setChangedGroupList(value: Array<string>): ReloadConfigResponse;
-  clearChangedGroupList(): ReloadConfigResponse;
-  addChangedGroup(value: string, index?: number): ReloadConfigResponse;
-
-  getRemovedGroupList(): Array<string>;
-  setRemovedGroupList(value: Array<string>): ReloadConfigResponse;
-  clearRemovedGroupList(): ReloadConfigResponse;
-  addRemovedGroup(value: string, index?: number): ReloadConfigResponse;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ReloadConfigResponse.AsObject;
   static toObject(includeInstance: boolean, msg: ReloadConfigResponse): ReloadConfigResponse.AsObject;
@@ -183,9 +164,24 @@ export class ReloadConfigResponse extends jspb.Message {
 
 export namespace ReloadConfigResponse {
   export type AsObject = {
-    addedGroupList: Array<string>,
-    changedGroupList: Array<string>,
-    removedGroupList: Array<string>,
+  }
+}
+
+export class DumpConfigResponse extends jspb.Message {
+  getConfigjson(): string;
+  setConfigjson(value: string): DumpConfigResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DumpConfigResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: DumpConfigResponse): DumpConfigResponse.AsObject;
+  static serializeBinaryToWriter(message: DumpConfigResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): DumpConfigResponse;
+  static deserializeBinaryFromReader(message: DumpConfigResponse, reader: jspb.BinaryReader): DumpConfigResponse;
+}
+
+export namespace DumpConfigResponse {
+  export type AsObject = {
+    configjson: string,
   }
 }
 

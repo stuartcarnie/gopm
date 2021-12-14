@@ -24,7 +24,7 @@ var topCmd = cobra.Command{
 		}
 		var usages []*processResourceUsage
 		for _, p := range res.Processes {
-			if !control.inProcessMap(p, display) {
+			if len(display) > 0 && !display[p.Name] {
 				continue
 			}
 			info, err := procusage.Stat(int(p.Pid))

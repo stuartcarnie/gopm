@@ -17,6 +17,7 @@ service Gopm {
     rpc TailLog(TailLogRequest) returns (stream TailLogResponse);
     rpc SignalProcess(SignalProcessRequest) returns (google.protobuf.Empty);
     rpc SignalAllProcesses(SignalProcessRequest) returns (ProcessInfoResponse);
+    rpc DumpConfig(google.protobuf.Empty) returns (DumpConfigResponse);
 }
 
 message VersionResponse {
@@ -29,7 +30,6 @@ message ProcessInfoResponse {
 
 message ProcessInfo {
     string name = 1;
-    string group = 2;
     string description = 3;
     int64 start = 4;
     int64 stop = 5;
@@ -56,9 +56,12 @@ message StartStopAllRequest {
 }
 
 message ReloadConfigResponse {
-    repeated string added_group = 1;
-    repeated string changed_group = 2;
-    repeated string removed_group = 3;
+    // Previous removed tags ended at 3.
+    // TODO add multiple errors so that gopmctl can print them.
+}
+
+message DumpConfigResponse {
+	string ConfigJSON = 1;
 }
 
 message TailLogRequest {

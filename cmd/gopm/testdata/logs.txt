@@ -2,7 +2,9 @@ gopm -c gopmconfig --quit-delay 0 &
 waitfile gopm.socket
 waitfile finished.txt
 gopmctl --addr unix:gopm.socket logs -F -n 20 writer
-cmp stdout expect-stdout
+cmp stdout expect-log-n-20
+gopmctl --addr unix:gopm.socket logs -F -n 3 writer
+cmp stdout expect-log-n-3
 
 gopmctl --addr unix:gopm.socket shutdown
 wait
@@ -10,19 +12,27 @@ wait
 -- gopmconfig/config.cue --
 package config
 
-grpc_server: {
+config: grpc_server: {
 	network: "unix"
 	address: "gopm.socket"
 }
-programs: writer: {
+config: programs: writer: {
 	command: """
 		echo something to stdout
 		echo other thing to stderr >&2
+		echo foo
+		echo bar
+		echo baz
 		echo done > finished.txt
 		"""
-	directory: "progdir"
-	stop_signals: ["INT"]
 }
--- expect-stdout --
+-- expect-log-n-20 --
 something to stdout
 other thing to stderr
+foo
+bar
+baz
+-- expect-log-n-3 --
+foo
+bar
+baz

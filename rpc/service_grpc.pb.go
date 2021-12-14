@@ -30,6 +30,7 @@ type GopmClient interface {
 	TailLog(ctx context.Context, in *TailLogRequest, opts ...grpc.CallOption) (Gopm_TailLogClient, error)
 	SignalProcess(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SignalAllProcesses(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
+	DumpConfig(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DumpConfigResponse, error)
 }
 
 type gopmClient struct {
@@ -162,6 +163,15 @@ func (c *gopmClient) SignalAllProcesses(ctx context.Context, in *SignalProcessRe
 	return out, nil
 }
 
+func (c *gopmClient) DumpConfig(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DumpConfigResponse, error) {
+	out := new(DumpConfigResponse)
+	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/DumpConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GopmServer is the server API for Gopm service.
 // All implementations must embed UnimplementedGopmServer
 // for forward compatibility
@@ -177,6 +187,7 @@ type GopmServer interface {
 	TailLog(*TailLogRequest, Gopm_TailLogServer) error
 	SignalProcess(context.Context, *SignalProcessRequest) (*empty.Empty, error)
 	SignalAllProcesses(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error)
+	DumpConfig(context.Context, *empty.Empty) (*DumpConfigResponse, error)
 	mustEmbedUnimplementedGopmServer()
 }
 
@@ -216,6 +227,9 @@ func (UnimplementedGopmServer) SignalProcess(context.Context, *SignalProcessRequ
 }
 func (UnimplementedGopmServer) SignalAllProcesses(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SignalAllProcesses not implemented")
+}
+func (UnimplementedGopmServer) DumpConfig(context.Context, *empty.Empty) (*DumpConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DumpConfig not implemented")
 }
 func (UnimplementedGopmServer) mustEmbedUnimplementedGopmServer() {}
 
@@ -431,6 +445,24 @@ func _Gopm_SignalAllProcesses_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Gopm_DumpConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GopmServer).DumpConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopm.rpc.Gopm/DumpConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GopmServer).DumpConfig(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Gopm_ServiceDesc is the grpc.ServiceDesc for Gopm service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -477,6 +509,10 @@ var Gopm_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SignalAllProcesses",
 			Handler:    _Gopm_SignalAllProcesses_Handler,
+		},
+		{
+			MethodName: "DumpConfig",
+			Handler:    _Gopm_DumpConfig_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

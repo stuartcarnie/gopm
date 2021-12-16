@@ -5,6 +5,7 @@ go 1.17
 require (
 	cuelang.org/go v0.4.1-beta.6
 	github.com/frankban/quicktest v1.14.0
+	github.com/fsnotify/fsnotify v1.4.7
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/mux v1.7.3
 	github.com/improbable-eng/grpc-web v0.12.1-0.20200305144932-d92a6da4a4d4

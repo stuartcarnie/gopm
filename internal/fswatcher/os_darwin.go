@@ -1,5 +1,8 @@
-//go:build darwin
-// +build darwin
+//go:build darwin && ignore
+// +build darwin,ignore
+
+// Note: this is disabled for now because the fsevents package doesn't
+// seem to work.
 
 package fswatcher
 
@@ -10,8 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/fsnotify/fsevents"
-	"gopkg.in/tomb.v2"
+	"github.com/stuartcarnie/gopm/internal/fsevents"
 )
 
 const (
@@ -20,19 +22,14 @@ const (
 	fCreated = fsevents.ItemCreated
 )
 
-type fswatcher struct {
+type FSWatcher struct {
 	eventCh chan Event
 	es      *fsevents.EventStream
+	closed  chan struct{}
+	done    chan struct{}
 }
 
-// New creates a file watcher that provide events recursively for all files and directories
-// that aren't filtered by the watch filter. The root argument must be an existing directory,
-// in our case the module root. FSWatcher will not send events for any path (file or directory)
-// where the filter returns "true".
-func New(root string, filter watchFilterFn, logf logFn, tomb *tomb.Tomb) (*FSWatcher, error) {
-	if fi, err := os.Stat(root); err != nil || !fi.IsDir() {
-		return nil, fmt.Errorf("provided root %q must be an existing directory", root)
-	}
+func newFSWatcher(root string, selectPath func(path string, info os.FileInfo) bool) (*FSWatcher, error) {
 	dev, err := fsevents.DeviceForPath(root)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve device for path %v: %v", root, err)
@@ -44,7 +41,6 @@ func New(root string, filter watchFilterFn, logf logFn, tomb *tomb.Tomb) (*FSWat
 		Device:  dev,
 		Flags:   fsevents.FileEvents | fsevents.WatchRoot,
 	}
-
 	es.Start()
 
 	// fsevents returns paths relative to device root so we need
@@ -66,45 +62,70 @@ func New(root string, filter watchFilterFn, logf logFn, tomb *tomb.Tomb) (*FSWat
 		mountPoint = parent
 	}
 
-	eventCh := make(chan Event)
-	tomb.Go(func() error {
+	w := &FSWatcher{
+		eventCh: make(chan Event),
+		es:      es,
+		closed:  make(chan struct{}),
+		done:    make(chan struct{}),
+	}
+
+	go func() {
+		defer close(w.eventCh)
+		defer close(w.done)
 		for {
-			events, ok := <-es.Events
-			if !ok {
-				break
-			}
-			for i := range events {
-				event := events[i]
-				path := filepath.Join(mountPoint, event.Path)
+			select {
+			case events := <-es.Events:
+				for i := range events {
+					event := &events[i]
+					log.Printf("got fsevents event at %q; flags %019b", event.Path, event.Flags)
+					path := filepath.Join(mountPoint, event.Path)
+					info, _ := os.Stat(path)
+					if !selectPath(path, info) {
+						log.Printf("not selected")
+						continue
+					}
+					log.Printf("selected")
 
-				if filter(path) {
-					continue
+					// Darwin might include both "created" and "changed" in the same event
+					// so ordering matters below. The "created" case should be checked
+					// before "changed" to get a behavior that is more consistent with other
+					// os_others.go.
+					switch {
+					case event.Flags&fRemoved != 0:
+						w.send(Event{path, Removed})
+					case event.Flags&fCreated != 0:
+						w.send(Event{path, Created})
+					case event.Flags&fChanged != 0:
+						w.send(Event{path, Changed})
+					}
 				}
-
-				// Darwin might include both "created" and "changed" in the same event
-				// so ordering matters below. The "created" case should be checked
-				// before "changed" to get a behavior that is more consistent with other
-				// os_other.go.
-				switch {
-				case event.Flags&fRemoved > 0:
-					eventCh <- Event{path, OpRemoved}
-				case event.Flags&fCreated > 0:
-					eventCh <- Event{path, OpCreated}
-				case event.Flags&fChanged > 0:
-					eventCh <- Event{path, OpChanged}
-				}
+			case <-w.closed:
+				return
 			}
 		}
-		close(eventCh)
-		return nil
-	})
+	}()
 
-	return &FSWatcher{&fswatcher{eventCh, es}}, nil
+	return w, nil
 }
 
-func (w *fswatcher) Close() error {
+func (w *FSWatcher) send(e Event) {
+	select {
+	case w.eventCh <- e:
+		return
+	case <-w.closed:
+	}
+}
+
+// Close closes the watcher. The caller must still be ready to receive
+// events from the Events channel when this is called.
+func (w *FSWatcher) Close() error {
 	w.es.Stop()
+	close(w.closed)
+	<-w.done
 	return nil
 }
-func (w *fswatcher) Events() chan Event { return w.eventCh }
-func (w *fswatcher) Errors() chan error { return make(chan error) }
+
+// Events returns a channel on which update events can be received.
+func (w *FSWatcher) Events() <-chan Event {
+	return w.eventCh
+}

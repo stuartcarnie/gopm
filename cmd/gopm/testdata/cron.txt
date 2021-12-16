@@ -1,0 +1,28 @@
+gopm -c gopmconfig --quit-delay 0 &
+# When the output file is created, we know we're near a second
+# boundary, so waiting over 3 seconds should result in three
+# more lines in the file.
+waitfile outfile
+exec sleep 3.8
+cmp outfile expect-outfile
+gopmctl --addr unix:gopm.socket shutdown
+wait
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+
+config: programs: repeat: {
+	command: "echo hello >> outfile"
+	auto_start: false
+	// Run every second.
+	cron: "* * * * * *",
+}
+-- expect-outfile --
+hello
+hello
+hello
+hello

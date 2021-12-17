@@ -95,7 +95,7 @@ func load0(configDir string) (*Config, error) {
 	// Make sure the config value is there before we fill it in with
 	// our own schema.
 	if val := val.LookupPath(pathConfig); val.Err() != nil {
-		return nil, fmt.Errorf("cannot get \"gopm\" value containing configuration: %w", err)
+		return nil, fmt.Errorf("cannot get \"gopm\" value containing configuration: %w", val.Err())
 	}
 
 	// Load the schema and defaults from our embedded CUE file (see schema.cue).
@@ -349,7 +349,11 @@ func (sched *CronSchedule) UnmarshalJSON(data []byte) error {
 		sched.String = ""
 		return nil
 	}
-	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	// Note: the below options are equivalent to the cron.WithSeconds
+	// scheduler option.
+	parser := cron.NewParser(
+		cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor,
+	)
 	schedule, err := parser.Parse(s)
 	if err != nil {
 		return fmt.Errorf("cannot parse cron entry: %v", err)

@@ -111,6 +111,10 @@ type process struct {
 	// exitStatus holds the error returned by the last cmd.Wait call.
 	exitStatus error
 
+	// cronTimer expires when the next cron event happens.
+	// It's non-nil only if the process has a cron entry.
+	cronTimer *time.Timer
+
 	// startTime holds the time that the command was started, or the
 	// zero time if there is no command running.
 	startTime time.Time
@@ -172,6 +176,7 @@ func (p *process) run() {
 	timer := time.NewTimer(time.Minute)
 	timer.Stop()
 	defer p.stopDepsWatch()
+	p.startCron()
 
 	// Loop waiting for events, and letting p.state largely dictate what we
 	// do when things happen. Note that this goroutine should never block
@@ -249,7 +254,10 @@ func (p *process) run() {
 			// to start a command.
 			p.stopDepsWatch()
 		}
-
+		var cronTimerC <-chan time.Time
+		if p.cronTimer != nil {
+			cronTimerC = p.cronTimer.C
+		}
 		select {
 		case req, ok := <-p.req:
 			if !ok {
@@ -307,6 +315,12 @@ func (p *process) run() {
 
 		case <-timer.C:
 			// A previously configured timer event has fired.
+		case <-cronTimerC:
+			// A cron event has triggered; it's equivalent to a start request.
+			p.handleRequest(processRequest{
+				kind: reqStart,
+			})
+			p.cronTimer.Reset(p.nextCronWait())
 		}
 	}
 }
@@ -476,6 +490,23 @@ func (p *process) handleUpdate(newConfig *config.Program, deps []*process) {
 	p.exitStatus = nil
 	p.startCount = 0
 	p.depsRunning = false
+	p.startCron()
+}
+
+func (p *process) startCron() {
+	if p.cronTimer != nil {
+		p.cronTimer.Stop()
+		p.cronTimer = nil
+	}
+	if p.config.Cron != nil {
+		p.cronTimer = time.NewTimer(p.nextCronWait())
+	}
+}
+
+func (p *process) nextCronWait() time.Duration {
+	now := time.Now()
+	t := p.config.Cron.Schedule.Next(now)
+	return t.Sub(now)
 }
 
 func exitCode(err error) int {

@@ -101,7 +101,7 @@ config: #Config
 	start_seconds?: time.Duration
 
 	// cron holds a cron schedule for running the program.
-	cron?: string // TODO validate this
+	cron?: string
 
 	// auto_start indicates whether the program should start automatically when
 	// gopm is started.

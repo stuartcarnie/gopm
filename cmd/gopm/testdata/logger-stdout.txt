@@ -22,7 +22,8 @@ config: programs: writer: {
 			sleep 0.1
 		}
 		sendNoNL() {
-			echo -n "$@"
+			# Note: echo -n is non-portable.
+			printf "%s" "$*"
 			sleep 0.1
 		}
 		send 'first line'

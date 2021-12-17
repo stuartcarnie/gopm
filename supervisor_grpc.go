@@ -61,9 +61,10 @@ func (s *Supervisor) StopAllProcesses(_ context.Context, req *rpc.StartStopAllRe
 
 func (s *Supervisor) Shutdown(context.Context, *empty.Empty) (*empty.Empty, error) {
 	s.mu.Lock()
-	if s.done != nil {
+	select {
+	case <-s.done:
+	default:
 		close(s.done)
-		s.done = nil
 	}
 	s.mu.Unlock()
 	return &empty.Empty{}, nil

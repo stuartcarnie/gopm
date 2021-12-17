@@ -25,7 +25,7 @@ config: programs: writer: {
 		# amalgamated in the pipe from the process.
 		send() {
 			echo "$@"
-			sleep 0.1
+			sleep 0.2
 		}
 		send first line
 		send second line

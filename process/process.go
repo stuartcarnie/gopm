@@ -49,7 +49,7 @@ func (p State) String() string {
 	}
 }
 
-//go:generate stringer -type processRequestKind
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.1.8 -type processRequestKind
 
 type processRequestKind int
 

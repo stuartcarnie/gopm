@@ -1,0 +1,42 @@
+# Test that an empty command works as a pseudo-target.
+gopm -c gopmconfig --quit-delay 0 &
+waitfile a.txt
+cmp a.txt expect-a.txt
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+config: {
+	grpc_server: {
+		network: "unix"
+		address: "gopm.socket"
+	}
+	programs: {
+		a: {
+			command: """
+				echo "a [ $(cat b.txt) ] [ $(cat c.txt) ]" > a.txt
+				"""
+			depends_on: ["pseudo"]
+		}
+		pseudo: {
+			command: ""
+			depends_on: ["b", "c"]
+		}
+		b: {
+			command: """
+				sleep 0.5
+				echo b > b.txt
+				"""
+		}
+		c: {
+			command: """
+				sleep 0.5
+				echo c > c.txt
+				"""
+		}
+	}
+}
+-- expect-a.txt --
+a [ b ] [ c ]

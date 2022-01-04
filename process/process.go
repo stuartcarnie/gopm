@@ -221,12 +221,15 @@ func (p *process) run() {
 				p.zlog.Info("start")
 
 				// Wake up when the command has been running long enough
-				// to mark it as such.
+				// to mark it as such (or only when the command exits if it's
+				// a one-shot command).
 				p.startTime = time.Now()
 				p.stopTime = time.Time{}
-				timer.Reset(p.config.StartSeconds.D)
+				if !p.config.Oneshot {
+					timer.Reset(p.config.StartSeconds.D)
+				}
 			}
-			if p.cmd != nil && time.Since(p.startTime) >= p.config.StartSeconds.D {
+			if p.cmd != nil && !p.config.Oneshot && time.Since(p.startTime) >= p.config.StartSeconds.D {
 				// The command has been running for long enough to go
 				// into the Running state.
 				p.state = Running

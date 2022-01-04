@@ -1,0 +1,38 @@
+# Test that a oneshot program isn't marked as running even
+# when its start_seconds time expires.
+
+gopm -c gopmconfig --quit-delay 0 &
+waitfile gopm.socket
+
+# The start command should wait for the process to complete
+# regardless of how long it takes.
+! gopmctl --addr unix:gopm.socket start failing
+stderr 'Some processes failed to start:\n\tfailing\n'
+exists failing.txt
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: failing: {
+	command:      """
+		sleep 1
+		echo > failing.txt
+		exit 1
+	"""
+	// start_seconds should be ignored.
+	start_seconds: "1µs"
+	auto_restart: false
+	auto_start: false
+	oneshot: true
+}
+-- expect-failing.txt --
+failed
+failed
+failed

@@ -41,6 +41,7 @@ _bar: *"bbb" | string @tag(bar,type=string)
 			],
 			"restart_pause": "0s",
 			"start_retries": 3,
+			"oneshot": false,
 			"start_seconds": "1s",
 			"auto_start": true,
 			"auto_restart": false,

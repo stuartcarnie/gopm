@@ -29,7 +29,7 @@ func init() {
 	cfg.DisableStacktrace = true
 	cfg.EncoderConfig = encoder.NewDevelopmentEncoderConfig()
 	cfg.EncoderConfig.CallerKey = ""
-	cfg.Level.SetLevel(zap.InfoLevel)
+	cfg.Level.SetLevel(zap.DebugLevel)
 	log, err := cfg.Build()
 	if err != nil {
 		panic(err)

@@ -90,7 +90,7 @@ config: #Config
 
 	// restart_pause holds the length of time to wait after a program
 	// has exited before auto-restarting it.
-	restart_pause?: int
+	restart_pause?: time.Duration
 
 	// start_retries holds the maximum number of times to try auto-restarting
 	// a program before giving up.

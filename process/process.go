@@ -61,6 +61,7 @@ const (
 	reqRestart
 	reqInfo
 	reqLogger
+	reqSignal
 )
 
 type processRequest struct {
@@ -75,6 +76,9 @@ type processRequest struct {
 
 	// reqLogger
 	loggerReply chan<- *logger.Logger
+
+	// reqSignal
+	signal config.Signal
 }
 
 type process struct {
@@ -335,10 +339,7 @@ func (p *process) setStopSignals() {
 		return
 	}
 	sigs = append([]config.Signal{}, sigs...)
-	sigs = append(sigs, config.Signal{
-		S:      os.Kill,
-		String: "KILL",
-	})
+	sigs = append(sigs, killSig)
 	p.stopSignals = sigs
 }
 
@@ -347,7 +348,7 @@ func (p *process) signal(sig config.Signal) error {
 	if p.cmd == nil || p.cmd.Process == nil {
 		return fmt.Errorf("process not started")
 	}
-	p.zlog.Info("killing process", zap.String("signal", sig.String))
+	p.zlog.Info("killing process", zap.String("signal", sig.String()))
 	return signals.Kill(p.cmd.Process, sig.S, true)
 }
 
@@ -456,6 +457,8 @@ func (p *process) handleRequest(req processRequest) {
 		req.loggerReply <- p.logger
 	case reqInfo:
 		req.infoReply <- p.info()
+	case reqSignal:
+		p.signal(req.signal) // Note: ignore error.
 	default:
 		panic(fmt.Errorf("unknown process request received: %v", req.kind))
 	}
@@ -519,3 +522,11 @@ func exitCode(err error) int {
 	}
 	return exitError.ExitCode()
 }
+
+var killSig = func() config.Signal {
+	sig, err := config.ParseSignal("KILL")
+	if err != nil {
+		panic(err)
+	}
+	return sig
+}()

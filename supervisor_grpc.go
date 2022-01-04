@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/process"
 	"github.com/stuartcarnie/gopm/rpc"
 	"google.golang.org/grpc/codes"
@@ -114,7 +115,7 @@ func (l *streamLogger) Write(buf []byte) (int, error) {
 }
 
 func (s *Supervisor) SignalProcess(_ context.Context, req *rpc.SignalProcessRequest) (*empty.Empty, error) {
-	sig, err := req.Signal.ToSignal()
+	sig, err := config.ParseSignal(req.Signal)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Invalid signal")
 	}
@@ -125,7 +126,7 @@ func (s *Supervisor) SignalProcess(_ context.Context, req *rpc.SignalProcessRequ
 }
 
 func (s *Supervisor) SignalAllProcesses(_ context.Context, req *rpc.SignalProcessRequest) (*rpc.ProcessInfoResponse, error) {
-	sig, err := req.Signal.ToSignal()
+	sig, err := config.ParseSignal(req.Signal)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Invalid signal")
 	}

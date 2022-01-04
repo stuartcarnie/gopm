@@ -1,0 +1,55 @@
+# Test that we can send a signal to a program.
+gopm -c gopmconfig --quit-delay 0 &
+waitfile gopm.socket
+
+
+# Check we can send a signal to a single process
+waitfile started-p1.txt
+waitfile started-p2.txt
+waitfile started-p3.txt
+rm started-p1.txt started-p2.txt started-p3.txt
+gopmctl --addr unix:gopm.socket signal HUP p1
+waitfile signaled-p1.txt
+! waitfile signaled-p2.txt
+! waitfile signaled-p3.txt
+rm signaled-p1.txt
+
+# Check we can send a signal to more than one process.
+gopmctl --addr unix:gopm.socket signal HUP p1 p2
+waitfile signaled-p1.txt
+waitfile signaled-p2.txt
+! waitfile signaled-p3.txt
+rm signaled-p1.txt signaled-p2.txt
+
+# # Check we can send a signal via a label.
+gopmctl --addr unix:gopm.socket signal -l second=y HUP
+waitfile signaled-p2.txt
+waitfile signaled-p3.txt
+! waitfile signaled-p1.txt
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+
+config: programs: [name=_]: {
+	command: """
+		signal-notify -continue HUP started-\(name).txt signaled-\(name).txt
+	"""
+	auto_start: true
+	logfile: "/dev/stderr"
+}
+config: programs: p1: {
+}
+config: programs: p2: {
+	labels: second: "y"
+}
+config: programs: p3: {
+	labels: second: "y"
+}

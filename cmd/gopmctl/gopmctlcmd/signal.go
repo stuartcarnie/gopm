@@ -2,7 +2,6 @@ package gopmctlcmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -11,9 +10,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var signalOpt = struct {
+var signalOpt struct {
 	labels map[string]string
-}{}
+}
 
 var signalCmd = cobra.Command{
 	Use:   "signal <signal> name [name]...",
@@ -21,15 +20,10 @@ var signalCmd = cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sigName := args[0]
-		sigInt, ok := rpc.ProcessSignal_value[sigName]
-		if !ok {
-			return errors.New("invalid signal name")
-		}
-
-		signal := func(name string, labels map[string]string, sigInt int32) error {
+		signal := func(name string, labels map[string]string) error {
 			req := rpc.SignalProcessRequest{
 				Name:   name,
-				Signal: rpc.ProcessSignal(sigInt),
+				Signal: sigName,
 				Labels: labels,
 			}
 			_, err := control.client.SignalProcess(context.Background(), &req)
@@ -42,12 +36,12 @@ var signalCmd = cobra.Command{
 			return nil
 		}
 		if len(args) == 1 {
-			if err := signal("", signalOpt.labels, sigInt); err != nil {
+			if err := signal("", signalOpt.labels); err != nil {
 				return err
 			}
 		}
 		for _, name := range args[1:] {
-			if err := signal(name, signalOpt.labels, sigInt); err != nil {
+			if err := signal(name, signalOpt.labels); err != nil {
 				return err
 			}
 		}

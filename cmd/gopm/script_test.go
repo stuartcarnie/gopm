@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -8,7 +10,9 @@ import (
 	"time"
 
 	"github.com/rogpeppe/go-internal/testscript"
+
 	"github.com/stuartcarnie/gopm/cmd/gopmctl/gopmctlcmd"
+	"github.com/stuartcarnie/gopm/config"
 )
 
 func TestMain(m *testing.M) {
@@ -17,6 +21,7 @@ func TestMain(m *testing.M) {
 		"gopm":             Main,
 		"gopmctl":          gopmctlcmd.Main,
 		"interrupt-notify": interruptNotifyMain,
+		"signal-notify":    signalNotifyMain,
 	}))
 }
 
@@ -43,25 +48,52 @@ func interruptNotifyMain() int {
 		log.Print("usage: interrupt-notify <startfile> <interruptedfile>")
 		return 2
 	}
-	startFile := os.Args[1]
-	interruptedFile := os.Args[2]
-	nc := make(chan os.Signal, 1)
-	signal.Notify(nc, os.Interrupt)
-	if err := os.WriteFile(startFile, []byte("started\n"), 0o666); err != nil {
-		log.Print(err)
-		return 1
-	}
-	select {
-	case <-nc:
-		if err := os.WriteFile(interruptedFile, []byte("interrupted\n"), 0o666); err != nil {
-			log.Print(err)
-			return 1
-		}
-	case <-time.After(5 * time.Second):
-		log.Print("interrupt-notify: timed out waiting for interrupt")
+	if err := signalNotifyCmd(false, "INT", os.Args[1], os.Args[2]); err != nil {
+		log.Printf("interrupt-notify: %v", err)
 		return 1
 	}
 	return 0
+}
+
+func signalNotifyMain() int {
+	contFlag := flag.Bool("continue", false, "do not stop notifying after first signal")
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 3 {
+		log.Printf("usage: signal-notify [-continue] <signal> <startfile> <interruptedfile> (got %q)", args)
+		return 2
+	}
+	if err := signalNotifyCmd(*contFlag, args[0], args[1], args[2]); err != nil {
+		log.Printf("signal-notify: %v", err)
+		return 1
+	}
+	return 0
+}
+
+func signalNotifyCmd(cont bool, sigStr string, startFile, interruptedFile string) error {
+	sig, err := config.ParseSignal(sigStr)
+	if err != nil {
+		return err
+	}
+	nc := make(chan os.Signal, 1)
+	signal.Notify(nc, sig.S)
+	if err := os.WriteFile(startFile, []byte("started\n"), 0o666); err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-nc:
+			if err := os.WriteFile(interruptedFile, []byte("interrupted\n"), 0o666); err != nil {
+				return err
+			}
+		case <-time.After(5 * time.Second):
+			return fmt.Errorf("timed out waiting for %v signal", sig)
+		}
+		if !cont {
+			return nil
+		}
+	}
+	return nil
 }
 
 // waitfile waits until the argument file has been created.

@@ -3,9 +3,7 @@ package process
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -95,8 +93,18 @@ func (pm *Manager) RestartProcesses(name string, labels map[string]string) error
 }
 
 // SignalProcesses sends the given signal to all matching processes.
-func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig os.Signal) error {
-	return fmt.Errorf("unimplemented")
+func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig config.Signal) error {
+	procs := pm.send(processRequest{
+		kind:   reqSignal,
+		signal: sig,
+	}, name, labels)
+	if len(procs) == 0 {
+		return ErrNotFound
+	}
+	// We could potentially wait here until the signal(s) have actually been sent,
+	// but is that worth doing, given that signal delivery is essentially asynchronous
+	// anyway?
+	return nil
 }
 
 // StartAllProcesses starts all the processes.

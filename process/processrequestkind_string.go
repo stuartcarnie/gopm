@@ -15,11 +15,12 @@ func _() {
 	_ = x[reqRestart-4]
 	_ = x[reqInfo-5]
 	_ = x[reqLogger-6]
+	_ = x[reqSignal-7]
 }
 
-const _processRequestKind_name = "reqInvalidreqUpdatereqStartreqStopreqRestartreqInforeqLogger"
+const _processRequestKind_name = "reqInvalidreqUpdatereqStartreqStopreqRestartreqInforeqLoggerreqSignal"
 
-var _processRequestKind_index = [...]uint8{0, 10, 19, 27, 34, 44, 51, 60}
+var _processRequestKind_index = [...]uint8{0, 10, 19, 27, 34, 44, 51, 60, 69}
 
 func (i processRequestKind) String() string {
 	if i < 0 || i >= processRequestKind(len(_processRequestKind_index)-1) {

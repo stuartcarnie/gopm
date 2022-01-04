@@ -112,7 +112,7 @@ func (pm *Manager) StartAllProcesses() {
 	procs := pm.sendAll(processRequest{
 		kind: reqStart,
 	})
-	<-pm.notifier.watch(nil, procs, isReady)
+	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
 }
 
 // StopProcesses starts all matching processes.
@@ -123,7 +123,7 @@ func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
 	if len(procs) == 0 {
 		return ErrNotFound
 	}
-	<-pm.notifier.watch(nil, procs, isReady)
+	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
 	return nil
 }
 

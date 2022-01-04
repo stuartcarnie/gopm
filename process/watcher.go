@@ -84,6 +84,10 @@ func isReady(s State) bool {
 	return s == Running || s == Exited
 }
 
+func isReadyOrFailed(s State) bool {
+	return s == Running || s == Exited || s == Fatal
+}
+
 func isStopped(s State) bool {
 	return s == Stopped
 }

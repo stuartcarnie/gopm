@@ -221,9 +221,11 @@ func (p *process) run() {
 
 				// Wake up when the command has been running long enough
 				// to mark it as such.
+				p.startTime = time.Now()
+				p.stopTime = time.Time{}
 				timer.Reset(p.config.StartSeconds.D)
 			}
-			if time.Since(p.startTime) >= p.config.StartSeconds.D {
+			if p.cmd != nil && time.Since(p.startTime) >= p.config.StartSeconds.D {
 				// The command has been running for long enough to go
 				// into the Running state.
 				p.state = Running
@@ -314,6 +316,7 @@ func (p *process) run() {
 				} else {
 					p.state = Fatal
 				}
+				p.startCount = 0
 				break
 			}
 			// Wake up when we can try again.

@@ -8,7 +8,7 @@ import (
 // future-proofing
 version: "gopm.v1"
 runtime: #RuntimeConfig
-config: #Config
+config:  #Config
 
 // #Config defines the contents of the "config" value.
 #Config: {
@@ -37,7 +37,7 @@ config: #Config
 	filesystem: [string]: #File
 	filesystem: [name=_]: "name": name
 	filesystem: [_]: {
-		path: _
+		path:    _
 		absPath: pathpkg.Join([root, path], pathpkg.Unix)
 	}
 }
@@ -160,7 +160,7 @@ config: #Config
 }
 
 #File: {
-	name:    =~"^\\w+$"
+	name: =~"^\\w+$"
 	// path holds the path relative to the filesystem root.
 	path:    string & =~"."
 	content: string

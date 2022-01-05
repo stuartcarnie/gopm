@@ -17,7 +17,6 @@ goog.object.extend(proto, google_protobuf_empty_pb);
 goog.exportSymbol('proto.gopm.rpc.DumpConfigResponse', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessInfo', null, global);
 goog.exportSymbol('proto.gopm.rpc.ProcessInfoResponse', null, global);
-goog.exportSymbol('proto.gopm.rpc.ProcessSignal', null, global);
 goog.exportSymbol('proto.gopm.rpc.ReloadConfigResponse', null, global);
 goog.exportSymbol('proto.gopm.rpc.SignalProcessRequest', null, global);
 goog.exportSymbol('proto.gopm.rpc.StartStopAllRequest', null, global);
@@ -1979,8 +1978,8 @@ proto.gopm.rpc.SignalProcessRequest.prototype.toObject = function(opt_includeIns
 proto.gopm.rpc.SignalProcessRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    signal: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    labelsMap: (f = msg.getLabelsMap()) ? f.toObject(includeInstance, undefined) : []
+    labelsMap: (f = msg.getLabelsMap()) ? f.toObject(includeInstance, undefined) : [],
+    signal: jspb.Message.getFieldWithDefault(msg, 4, "")
   };
 
   if (includeInstance) {
@@ -2021,15 +2020,15 @@ proto.gopm.rpc.SignalProcessRequest.deserializeBinaryFromReader = function(msg, 
       var value = /** @type {string} */ (reader.readString());
       msg.setName(value);
       break;
-    case 2:
-      var value = /** @type {!proto.gopm.rpc.ProcessSignal} */ (reader.readEnum());
-      msg.setSignal(value);
-      break;
     case 3:
       var value = msg.getLabelsMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
          });
+      break;
+    case 4:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setSignal(value);
       break;
     default:
       reader.skipField();
@@ -2067,16 +2066,16 @@ proto.gopm.rpc.SignalProcessRequest.serializeBinaryToWriter = function(message, 
       f
     );
   }
-  f = message.getSignal();
-  if (f !== 0.0) {
-    writer.writeEnum(
-      2,
-      f
-    );
-  }
   f = message.getLabelsMap(true);
   if (f && f.getLength() > 0) {
     f.serializeBinary(3, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
+  }
+  f = message.getSignal();
+  if (f.length > 0) {
+    writer.writeString(
+      4,
+      f
+    );
   }
 };
 
@@ -2096,24 +2095,6 @@ proto.gopm.rpc.SignalProcessRequest.prototype.getName = function() {
  */
 proto.gopm.rpc.SignalProcessRequest.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional ProcessSignal signal = 2;
- * @return {!proto.gopm.rpc.ProcessSignal}
- */
-proto.gopm.rpc.SignalProcessRequest.prototype.getSignal = function() {
-  return /** @type {!proto.gopm.rpc.ProcessSignal} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
-};
-
-
-/**
- * @param {!proto.gopm.rpc.ProcessSignal} value
- * @return {!proto.gopm.rpc.SignalProcessRequest} returns this
- */
-proto.gopm.rpc.SignalProcessRequest.prototype.setSignal = function(value) {
-  return jspb.Message.setProto3EnumField(this, 2, value);
 };
 
 
@@ -2140,18 +2121,21 @@ proto.gopm.rpc.SignalProcessRequest.prototype.clearLabelsMap = function() {
 
 
 /**
- * @enum {number}
+ * optional string signal = 4;
+ * @return {string}
  */
-proto.gopm.rpc.ProcessSignal = {
-  HUP: 0,
-  INT: 1,
-  QUIT: 2,
-  KILL: 3,
-  USR1: 4,
-  USR2: 5,
-  TERM: 6,
-  STOP: 7,
-  CONT: 8
+proto.gopm.rpc.SignalProcessRequest.prototype.getSignal = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
 };
+
+
+/**
+ * @param {string} value
+ * @return {!proto.gopm.rpc.SignalProcessRequest} returns this
+ */
+proto.gopm.rpc.SignalProcessRequest.prototype.setSignal = function(value) {
+  return jspb.Message.setProto3StringField(this, 4, value);
+};
+
 
 goog.object.extend(exports, proto.gopm.rpc);

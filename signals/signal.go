@@ -9,7 +9,8 @@ import (
 	"syscall"
 )
 
-// ToSignal convert a signal name to signal
+// ToSignal converts a signal name to signal.
+// TODO support numeric signals?
 func ToSignal(signalName string) (os.Signal, error) {
 	switch signalName {
 	case "HUP":

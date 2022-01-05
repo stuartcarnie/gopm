@@ -235,11 +235,11 @@ export class SignalProcessRequest extends jspb.Message {
   getName(): string;
   setName(value: string): SignalProcessRequest;
 
-  getSignal(): ProcessSignal;
-  setSignal(value: ProcessSignal): SignalProcessRequest;
-
   getLabelsMap(): jspb.Map<string, string>;
   clearLabelsMap(): SignalProcessRequest;
+
+  getSignal(): string;
+  setSignal(value: string): SignalProcessRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SignalProcessRequest.AsObject;
@@ -252,19 +252,8 @@ export class SignalProcessRequest extends jspb.Message {
 export namespace SignalProcessRequest {
   export type AsObject = {
     name: string,
-    signal: ProcessSignal,
     labelsMap: Array<[string, string]>,
+    signal: string,
   }
 }
 
-export enum ProcessSignal { 
-  HUP = 0,
-  INT = 1,
-  QUIT = 2,
-  KILL = 3,
-  USR1 = 4,
-  USR2 = 5,
-  TERM = 6,
-  STOP = 7,
-  CONT = 8,
-}

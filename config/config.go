@@ -17,8 +17,6 @@ import (
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/load"
 	"github.com/robfig/cron/v3"
-
-	"github.com/stuartcarnie/gopm/signals"
 )
 
 var (
@@ -365,29 +363,6 @@ func (sched *CronSchedule) UnmarshalJSON(data []byte) error {
 
 func (sched *CronSchedule) MarshalJSON() ([]byte, error) {
 	return json.Marshal(sched.String)
-}
-
-type Signal struct {
-	S      os.Signal
-	String string
-}
-
-func (s *Signal) UnmarshalJSON(data []byte) error {
-	var str string
-	if err := json.Unmarshal(data, &str); err != nil {
-		return err
-	}
-	sig, err := signals.ToSignal(str)
-	if err != nil {
-		return err
-	}
-	s.S = sig
-	s.String = str
-	return nil
-}
-
-func (s *Signal) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String)
 }
 
 type ConfigError struct {

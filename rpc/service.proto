@@ -74,20 +74,9 @@ message TailLogResponse {
     bytes lines = 1;
 }
 
-enum ProcessSignal {
-    HUP = 0;
-    INT = 1;
-    QUIT = 2;
-    KILL = 3;
-    USR1 = 4;
-    USR2 = 5;
-    TERM = 6;
-    STOP = 7;
-    CONT = 8;
-}
-
 message SignalProcessRequest {
     string name = 1;
-    ProcessSignal signal = 2;
+    // Note: old signal field had tag 2.
     map<string, string> labels = 3;
+    string signal = 4;
 }

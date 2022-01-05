@@ -200,6 +200,13 @@ func (p *process) run() {
 				// It's time to start the command.
 				p.startCount++
 				p.totalStartCount++
+				p.startTime = time.Now()
+				p.stopTime = time.Time{}
+				if p.config.Command == "" {
+					// The empty command always succeeds immediately.
+					p.state = Exited
+					break
+				}
 				if err := p.startCommand(); err != nil {
 					// It's an error that won't be fixed by retrying.
 					p.zlog.Info("cannot start command", zap.Error(err))
@@ -208,8 +215,6 @@ func (p *process) run() {
 				}
 				// Wake up when the command has been running long enough
 				// to mark it as such.
-				p.startTime = time.Now()
-				p.stopTime = time.Time{}
 				timer.Reset(p.config.StartSeconds.D)
 			}
 			if time.Since(p.startTime) >= p.config.StartSeconds.D {

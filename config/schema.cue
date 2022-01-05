@@ -70,7 +70,11 @@ config: #Config
 	directory?: string
 
 	// command holds the command to run the program.
-	command: string & =~"."
+	// If it's empty, the command will always be considered
+	// to succeed (the shell value is ignored in this case).
+	// This can be useful for making a program that acts as
+	// a pseudo-target for a bunch of other dependencies.
+	command: string
 
 	// shell specifies the shell command to use to interpret the
 	// above command. The shell is invoked as $shell -c $command.

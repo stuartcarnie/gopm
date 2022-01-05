@@ -217,6 +217,8 @@ func (p *process) run() {
 					p.state = Fatal
 					break
 				}
+				p.zlog.Info("start")
+
 				// Wake up when the command has been running long enough
 				// to mark it as such.
 				timer.Reset(p.config.StartSeconds.D)
@@ -284,7 +286,7 @@ func (p *process) run() {
 		case exit := <-p.cmdWait:
 			// The command that we're running has exited.
 
-			p.zlog.Info("cmd exit", zap.Error(exit))
+			p.zlog.Info("exited", zap.Error(exit))
 			p.cmd = nil
 			p.exitStatus = exit
 			p.startTime = time.Time{}
@@ -320,6 +322,7 @@ func (p *process) run() {
 
 		case <-p.depsWatch:
 			// Our dependencies have become ready.
+			p.zlog.Info("dependencies are ready")
 			p.depsRunning = true
 
 		case <-timer.C:

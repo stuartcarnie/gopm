@@ -66,7 +66,7 @@ func interruptNotifyMain() int {
 
 // waitfile waits until the argument file has been created.
 func waitfile(ts *testscript.TestScript, neg bool, args []string) {
-	timeout := 2 * time.Second
+	timeout := 5 * time.Second
 	if neg {
 		// If we're making sure that a file doesn't exist, then
 		// a shorter timeout is appropriate.

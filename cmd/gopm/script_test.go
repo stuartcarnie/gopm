@@ -93,7 +93,6 @@ func signalNotifyCmd(cont bool, sigStr string, startFile, interruptedFile string
 			return nil
 		}
 	}
-	return nil
 }
 
 // waitfile waits until the argument file has been created.

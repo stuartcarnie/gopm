@@ -25,24 +25,11 @@ var (
 	pathConfig       = cue.MakePath(cue.Str("config"))
 )
 
-type options struct {
-	tags []string
-}
-
-type optionFunc func(o *options)
-
-// WithTags returns an option function to provide a list of tag values when loading the configuration.
-func WithTags(tags []string) optionFunc {
-	return func(o *options) {
-		o.tags = tags
-	}
-}
-
-// Load loads the configuration at the given directory, using the specified options, and returns it.
+// Load loads the configuration at the given directory, with any configuration tags, and returns it.
 // On error, the error value may contain an Error value
 // containing multiple errors.
-func Load(configDir string, opts ...optionFunc) (*Config, error) {
-	cfg, err := load0(configDir, opts...)
+func Load(configDir string, tags []string) (*Config, error) {
+	cfg, err := load0(configDir, tags)
 	if err == nil {
 		return cfg, nil
 	}
@@ -54,12 +41,7 @@ func Load(configDir string, opts ...optionFunc) (*Config, error) {
 	return nil, err
 }
 
-func load0(configDir string, opts ...optionFunc) (*Config, error) {
-	var o options
-	for _, opt := range opts {
-		opt(&o)
-	}
-
+func load0(configDir string, tags []string) (*Config, error) {
 	info, err := os.Stat(configDir)
 	if err != nil {
 		return nil, err
@@ -91,7 +73,7 @@ func load0(configDir string, opts ...optionFunc) (*Config, error) {
 	ctx := cuecontext.New()
 	insts := load.Instances([]string{"."}, &load.Config{
 		Dir:  configDir,
-		Tags: o.tags,
+		Tags: tags,
 	})
 	for _, inst := range insts {
 		if err := inst.Err; err != nil {

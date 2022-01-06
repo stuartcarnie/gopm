@@ -38,26 +38,14 @@ type Supervisor struct {
 	done       chan struct{}
 }
 
-type optionFunc func(s *Supervisor)
-
-// WithTags returns an option function to configure a Supervisor
-// with a list of tag values to use when evaluating the configuration.
-func WithTags(tags []string) optionFunc {
-	return func(s *Supervisor) {
-		s.tags = tags
-	}
-}
-
-// NewSupervisor create a Supervisor object with supervisor configuration file, using the specified options.
-func NewSupervisor(configFile string, opts ...optionFunc) *Supervisor {
+// NewSupervisor create a Supervisor object with supervisor configuration file and configuration tags.
+func NewSupervisor(configFile string, tags []string) *Supervisor {
 	s := &Supervisor{
 		configFile: configFile,
+		tags:       tags,
 		procMgr:    process.NewManager(),
 		config:     new(config.Config),
 		done:       make(chan struct{}),
-	}
-	for _, opt := range opts {
-		opt(s)
 	}
 	return s
 }
@@ -93,7 +81,7 @@ func (s *Supervisor) Done() <-chan struct{} {
 // Reload reloads the supervisor configuration
 func (s *Supervisor) Reload() error {
 	zap.L().Info("reloading configuration")
-	newConfig, err := config.Load(s.configFile, config.WithTags(s.tags))
+	newConfig, err := config.Load(s.configFile, s.tags)
 	if err != nil {
 		zap.L().Error("Error loading configuration", zap.Error(err))
 		var configErr *config.ConfigError

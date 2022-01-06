@@ -18,6 +18,7 @@ import (
 
 type Control struct {
 	Configuration string
+	Tags          []string
 	Address       string
 
 	client rpc.GopmClient
@@ -38,6 +39,7 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&control.Configuration, "config", "c", "", "Configuration file")
+	rootCmd.PersistentFlags().StringArrayVarP(&control.Tags, "inject", "t", nil, "Set the value of a tagged field in the configuration (for example -t someField=someValue)")
 	rootCmd.PersistentFlags().StringVar(&control.Address, "addr", "localhost:9002", "gopm server address")
 	rootCmd.AddCommand(&dumpConfigCmd)
 	rootCmd.AddCommand(&reloadCmd)
@@ -74,7 +76,7 @@ func (ctl *Control) getServerURL() string {
 	if ctl.Address != "" {
 		return ctl.Address
 	} else if _, err := os.Stat(ctl.Configuration); err == nil {
-		cfg, err := config.Load(ctl.Configuration)
+		cfg, err := config.Load(ctl.Configuration, nil)
 		if err == nil {
 			// TODO return error from getServerURL
 			svr := cfg.GRPCServer

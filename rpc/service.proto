@@ -80,3 +80,8 @@ message SignalProcessRequest {
     map<string, string> labels = 3;
     string signal = 4;
 }
+
+// NotStartedError is used as an error detail
+message NotStartedError {
+    repeated string processNames = 1;
+}

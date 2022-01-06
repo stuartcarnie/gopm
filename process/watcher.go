@@ -80,12 +80,36 @@ func (w *stateNotifier) watch(cancel <-chan struct{}, procs []*process, f func(S
 	return c
 }
 
-func isReady(s State) bool {
-	return s == Running || s == Exited
+// check checks that the state of all the given processes satisfies f.
+// It returns any processes that don't (or nil if w has been closed).
+//
+// If a process has gone away, f is deemed as satisfied for that process.
+func (w *stateNotifier) check(procs []*process, f func(State) bool) []*process {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if w.closed {
+		return nil
+	}
+	var unsatisfied []*process
+	for _, p := range procs {
+		state, ok := w.state[p]
+		if !ok {
+			// The process has gone away so we consider the state satisfied.
+			continue
+		}
+		if !f(state) {
+			unsatisfied = append(unsatisfied, p)
+		}
+	}
+	return unsatisfied
 }
 
 func isReadyOrFailed(s State) bool {
 	return s == Running || s == Exited || s == Fatal
+}
+
+func isReady(s State) bool {
+	return s == Running || s == Exited
 }
 
 func isStopped(s State) bool {

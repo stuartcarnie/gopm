@@ -175,7 +175,7 @@ func (s *Supervisor) startHTTPServer(newConfig *config.Config, listener net.List
 	if listener != nil {
 		cfg := newConfig.HTTPServer
 
-		grpcServer := grpc.NewServer()
+		grpcServer := grpc.NewServer(rpc.ServerErrors())
 		rpc.RegisterGopmServer(grpcServer, s)
 		reflection.Register(grpcServer)
 		wrappedGrpc := grpcweb.WrapServer(grpcServer, grpcweb.WithOriginFunc(func(string) bool { return true }))
@@ -225,7 +225,7 @@ func (s *Supervisor) startGrpcServer(newConfig *config.Config, listener net.List
 	}
 	var grpcServer *grpc.Server
 	if newConfig.GRPCServer != nil {
-		grpcServer = grpc.NewServer()
+		grpcServer = grpc.NewServer(rpc.ServerErrors())
 		rpc.RegisterGopmServer(grpcServer, s)
 		reflection.Register(grpcServer)
 

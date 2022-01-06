@@ -1,2 +1,2 @@
 ! gopmctl --addr bad:address status
-stderr 'Error: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp: lookup tcp/address: .*"'
+stderr 'Error: rpc error: connection error: desc = "transport: Error while dialing dial tcp: lookup tcp/address: .*"'

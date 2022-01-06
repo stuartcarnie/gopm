@@ -8,7 +8,8 @@ rm failing.txt
 # Test that it tries again from scratch when we
 # start it
 
-gopmctl --addr unix:gopm.socket start failing
+! gopmctl --addr unix:gopm.socket start failing
+stderr 'Some processes failed to start:\n\tfailing\n'
 waitfile failing.txt
 exec sleep 1
 cmp failing.txt expect-failing.txt

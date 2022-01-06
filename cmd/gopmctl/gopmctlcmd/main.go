@@ -68,7 +68,7 @@ func (ctl *Control) initializeClient() error {
 		return err
 	}
 
-	control.client = rpc.NewGopmClient(gc)
+	control.client = rpc.NewGopmClient(rpc.ClientErrors(gc))
 	return nil
 }
 

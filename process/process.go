@@ -187,6 +187,7 @@ func (p *process) run() {
 	// anywhere other than in the select statement below - it should always
 	// be ready to accept commands on p.req.
 	for {
+		p.zlog.Debug("loop", zap.Stringer("state", p.state))
 		switch p.state {
 		case Starting, Backoff:
 			if p.depsWatch == nil {
@@ -271,6 +272,7 @@ func (p *process) run() {
 		if p.cronTimer != nil {
 			cronTimerC = p.cronTimer.C
 		}
+		p.zlog.Debug("waiting for event", zap.Stringer("state", p.state))
 		select {
 		case req, ok := <-p.req:
 			if !ok {
@@ -457,9 +459,9 @@ func (p *process) handleRequest(req processRequest) {
 			p.state = Starting
 		}
 	case reqStop, reqRestart:
-		if p.cmd == nil {
+		if p.cmd == nil || p.state == Backoff {
 			p.state = Stopped
-		} else if p.state != Backoff {
+		} else {
 			p.state = Stopping
 			p.setStopSignals()
 		}

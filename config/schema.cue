@@ -87,7 +87,7 @@ config:  #Config
 	// labels is
 	labels: [string]: string
 	environment?: {
-		{[=~"^\\w+$"]: string}
+		{[string]: string}
 	}
 	// user holds the username to run the process as.
 	user?: string
@@ -171,8 +171,6 @@ config:  #Config
 }
 
 #WithDefaults: {
-	...
-
 	runtime: #RuntimeConfig
 
 	config: #Config
@@ -193,4 +191,6 @@ config:  #Config
 		logfile_max_bytes:         *50Mi | _
 		logfile_max_backlog_bytes: *1Mi | _
 	}
+
+	...
 }

@@ -25,11 +25,11 @@ var (
 	pathConfig       = cue.MakePath(cue.Str("config"))
 )
 
-// Load loads the configuration at the given directory and returns it.
+// Load loads the configuration at the given directory, with any configuration tags, and returns it.
 // On error, the error value may contain an Error value
 // containing multiple errors.
-func Load(configDir string) (*Config, error) {
-	cfg, err := load0(configDir)
+func Load(configDir string, tags []string) (*Config, error) {
+	cfg, err := load0(configDir, tags)
 	if err == nil {
 		return cfg, nil
 	}
@@ -41,7 +41,7 @@ func Load(configDir string) (*Config, error) {
 	return nil, err
 }
 
-func load0(configDir string) (*Config, error) {
+func load0(configDir string, tags []string) (*Config, error) {
 	info, err := os.Stat(configDir)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,8 @@ func load0(configDir string) (*Config, error) {
 	// as we haven't yet unified with the runtime config.
 	ctx := cuecontext.New()
 	insts := load.Instances([]string{"."}, &load.Config{
-		Dir: configDir,
+		Dir:  configDir,
+		Tags: tags,
 	})
 	for _, inst := range insts {
 		if err := inst.Err; err != nil {

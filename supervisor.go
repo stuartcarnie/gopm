@@ -26,6 +26,7 @@ import (
 type Supervisor struct {
 	rpc.UnimplementedGopmServer
 	configFile string
+	tags       []string
 	procMgr    *process.Manager // process manager
 
 	// mu guards the fields below it.
@@ -37,10 +38,11 @@ type Supervisor struct {
 	done       chan struct{}
 }
 
-// NewSupervisor create a Supervisor object with supervisor configuration file
-func NewSupervisor(configFile string) *Supervisor {
+// NewSupervisor create a Supervisor object with supervisor configuration file and configuration tags.
+func NewSupervisor(configFile string, tags []string) *Supervisor {
 	return &Supervisor{
 		configFile: configFile,
+		tags:       tags,
 		procMgr:    process.NewManager(),
 		config:     new(config.Config),
 		done:       make(chan struct{}),
@@ -78,7 +80,7 @@ func (s *Supervisor) Done() <-chan struct{} {
 // Reload reloads the supervisor configuration
 func (s *Supervisor) Reload() error {
 	zap.L().Info("reloading configuration")
-	newConfig, err := config.Load(s.configFile)
+	newConfig, err := config.Load(s.configFile, s.tags)
 	if err != nil {
 		zap.L().Error("Error loading configuration", zap.Error(err))
 		var configErr *config.ConfigError

@@ -1,0 +1,65 @@
+mkdir progdir
+gopm -c gopmconfig --quit-delay 0 -t foo=one --inject bar=two &
+waitfile gopm.socket
+gopmctl --addr unix:gopm.socket dump-config
+cmpenv stdout expect-stdout
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: sleeper: {
+	command: """
+		echo hello foo=\(_foo) bar=\(_bar)
+		"""
+}
+_foo: *"aaa" | string @tag(foo,type=string)
+_bar: *"bbb" | string @tag(bar,type=string)
+-- expect-stdout --
+{
+	"root": "$WORK",
+	"environment": null,
+	"http_server": null,
+	"grpc_server": {
+		"address": "gopm.socket",
+		"network": "unix"
+	},
+	"programs": {
+		"sleeper": {
+			"name": "sleeper",
+			"directory": "$WORK",
+			"command": "echo hello foo=one bar=two",
+			"shell": "/bin/sh",
+			"environment": null,
+			"user": "",
+			"exit_codes": [
+				0,
+				2
+			],
+			"restart_pause": "0s",
+			"start_retries": 3,
+			"start_seconds": "1s",
+			"auto_start": true,
+			"auto_restart": false,
+			"restart_directory_monitor": "",
+			"restart_file_pattern": "*",
+			"stop_signals": [
+				"INT",
+				"KILL"
+			],
+			"stop_wait_seconds": "10s",
+			"stop_as_group": false,
+			"kill_as_group": false,
+			"logfile": "/dev/null",
+			"logfile_backups": 1,
+			"logfile_max_bytes": 52428800,
+			"logfile_max_backlog_bytes": 1048576,
+			"depends_on": null,
+			"labels": {}
+		}
+	},
+	"filesystem": {}
+}

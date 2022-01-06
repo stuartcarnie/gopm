@@ -37,7 +37,7 @@ func init() {
 }
 
 func runServer() error {
-	s := gopm.NewSupervisor(rootOpt.Configuration)
+	s := gopm.NewSupervisor(rootOpt.Configuration, rootOpt.Tags)
 	if err := s.Reload(); err != nil {
 		// Don't print configuration errors, as they've already been logged.
 		if errors.As(err, &gopm.SupervisorConfigError{}) {
@@ -83,6 +83,7 @@ FOR:
 var (
 	rootOpt struct {
 		Configuration string
+		Tags          []string
 		EnvFile       string
 		QuitDelay     time.Duration
 	}
@@ -105,6 +106,7 @@ func init() {
 
 func Main() int {
 	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration directory")
+	rootCmd.PersistentFlags().StringArrayVarP(&rootOpt.Tags, "inject", "t", nil, "Set the value of a tagged field in the configuration (for example -t someField=someValue)")
 	flags := rootCmd.Flags()
 	flags.DurationVar(&rootOpt.QuitDelay, "quit-delay", 2*time.Second, "Time to wait for second CTRL-C before quitting. 0 to quit immediately.")
 	_ = rootCmd.MarkFlagRequired("config")

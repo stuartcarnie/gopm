@@ -40,14 +40,13 @@ type Supervisor struct {
 
 // NewSupervisor create a Supervisor object with supervisor configuration file and configuration tags.
 func NewSupervisor(configFile string, tags []string) *Supervisor {
-	s := &Supervisor{
+	return &Supervisor{
 		configFile: configFile,
 		tags:       tags,
 		procMgr:    process.NewManager(),
 		config:     new(config.Config),
 		done:       make(chan struct{}),
 	}
-	return s
 }
 
 // Close closes the server, stopping all processes gracefully.

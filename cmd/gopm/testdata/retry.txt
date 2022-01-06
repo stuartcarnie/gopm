@@ -1,0 +1,38 @@
+# Test that a program is only restarted the correct number of times.
+gopm -c gopmconfig --quit-delay 0 &
+waitfile failing.txt
+exec sleep 1
+cmp failing.txt expect-failing.txt
+rm failing.txt
+
+# Test that it tries again from scratch when we
+# start it
+
+gopmctl --addr unix:gopm.socket start failing
+waitfile failing.txt
+exec sleep 1
+cmp failing.txt expect-failing.txt
+
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: failing: {
+	command:      """
+		echo failed >> failing.txt
+		exit 1
+	"""
+	start_retries: 3
+	restart_pause: "1ms"
+	auto_restart: true
+}
+-- expect-failing.txt --
+failed
+failed
+failed

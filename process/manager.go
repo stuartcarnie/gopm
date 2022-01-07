@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/logger"
 	"github.com/stuartcarnie/gopm/rpc"
@@ -66,6 +68,7 @@ type ProcessInfo struct {
 
 // AllProcessInfo returns information on all the processes.
 func (pm *Manager) AllProcessInfo() []*ProcessInfo {
+	zap.L().Debug("Manager.AllProcessInfo")
 	reply := make(chan *ProcessInfo)
 	n := len(pm.sendAll(processRequest{
 		kind:      reqInfo,
@@ -84,6 +87,7 @@ func (pm *Manager) AllProcessInfo() []*ProcessInfo {
 // RestartProcesses restarts all matching processes. If some failed to restart, it
 // returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) RestartProcesses(name string, labels map[string]string) error {
+	zap.L().Debug("Manager.RestartProcesses")
 	procs := pm.send(processRequest{
 		kind: reqRestart,
 	}, name, labels)
@@ -96,6 +100,7 @@ func (pm *Manager) RestartProcesses(name string, labels map[string]string) error
 
 // SignalProcesses sends the given signal to all matching processes.
 func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig config.Signal) error {
+	zap.L().Debug("Manager.SignalProcesses")
 	procs := pm.send(processRequest{
 		kind:   reqSignal,
 		signal: sig,
@@ -112,6 +117,7 @@ func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig co
 // StartAllProcesses starts all the processes. If some failed to start, it
 // returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) StartAllProcesses() error {
+	zap.L().Debug("Manager.StartAllProcesses")
 	procs := pm.sendAll(processRequest{
 		kind: reqStart,
 	})
@@ -122,6 +128,7 @@ func (pm *Manager) StartAllProcesses() error {
 // StartProcesses starts all matching processes. If some failed to start, it
 // returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
+	zap.L().Debug("Manager.StartProcesses")
 	procs := pm.send(processRequest{
 		kind: reqStart,
 	}, name, labels)
@@ -134,6 +141,7 @@ func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
 
 // StopAllProcesses stops all the processes managed by this manager
 func (pm *Manager) StopAllProcesses() {
+	zap.L().Debug("Manager.StopAllProcesses")
 	procs := pm.sendAll(processRequest{
 		kind: reqStop,
 	})
@@ -142,6 +150,7 @@ func (pm *Manager) StopAllProcesses() {
 
 // StopProcesses stops all matching processes.
 func (pm *Manager) StopProcesses(name string, labels map[string]string) error {
+	zap.L().Debug("Manager.StopProcesses")
 	procs := pm.send(processRequest{
 		kind: reqStop,
 	}, name, labels)

@@ -6,10 +6,12 @@ import (
 	"reflect"
 
 	"github.com/stuartcarnie/gopm/config"
+	"go.uber.org/zap"
 )
 
 // UpdatePrograms updates the programs run by the manager.
 func (pm *Manager) Update(ctx context.Context, config *config.Config) error {
+	zap.L().Debug("Manager.Update")
 	reply := make(chan error, 1)
 	pm.updateConfigc <- &updateConfigReq{
 		config: config,
@@ -84,6 +86,23 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 	// if they were already started.
 
 	pm.mu.RLock()
+
+	// Find out the current state of all processes so that we can
+	// restart them if needed after updating their configuration.
+	reply := make(chan *ProcessInfo)
+	req := processRequest{
+		kind:      reqInfo,
+		infoReply: reply,
+	}
+	for _, p := range pm.processes {
+		p.req <- req
+	}
+	needStart := make(map[string]bool)
+	for i := 0; i < len(pm.processes); i++ {
+		info := <-reply
+		needStart[info.Name] = info.State != Stopping && info.State != Stopped
+	}
+
 	_, err := pm.stopChangedProcesses(ctx, newConfig)
 	pm.mu.RUnlock()
 	if err != nil {
@@ -161,6 +180,12 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 				kind:      reqUpdate,
 				newConfig: newp,
 				newDeps:   deps,
+			}
+			if needStart[name] {
+				// The process wasn't stopped before, so start it again now.
+				oldp.req <- processRequest{
+					kind: reqStart,
+				}
 			}
 		}
 	}
@@ -243,5 +268,5 @@ func walkChanged(cfg *config.Config, name string, changed map[string]bool) bool 
 	if pchanged {
 		changed[name] = true
 	}
-	return pchanged
+	return changed[name]
 }

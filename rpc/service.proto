@@ -6,17 +6,47 @@ option go_package = ".;rpc";
 import "google/protobuf/empty.proto";
 
 service Gopm {
+    // GetProcessInfo returns information on all current processes.
     rpc GetProcessInfo (google.protobuf.Empty) returns (ProcessInfoResponse);
+
+    // StartProcess requests that some set of processes should start.
+    // If some didn't start OK, the returned error includes a NotStartedError
+    // detail.
     rpc StartProcess(StartStopRequest) returns (StartStopResponse);
-    rpc StopProcess(StartStopRequest) returns (StartStopResponse);
-    rpc RestartProcess(StartStopRequest) returns (StartStopResponse);
+
+    // StartAllProcesses requests that all processes should start.
+    // If not all succeeded in starting, the returned error includes a NotStartedError
+    // detail.
     rpc StartAllProcesses(StartStopAllRequest) returns (ProcessInfoResponse);
+
+    // StopProcess requests that some set of processes should stop.
+    rpc StopProcess(StartStopRequest) returns (StartStopResponse);
+
+    // StopProcess requests that all processes should stop.
     rpc StopAllProcesses(StartStopAllRequest) returns (ProcessInfoResponse);
+
+    // RestartProcess requests that some set of processes should start.
+    // If some didn't start again OK, the returned error includes a NotStartedError
+    // detail.
+    rpc RestartProcess(StartStopRequest) returns (StartStopResponse);
+
+    // Shutdown shuts down the gopm server, stopping all processes first.
     rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+    // ReloadConfig asks gopm to update its configuration by re-reading the configuration
+    // directory.
     rpc ReloadConfig(google.protobuf.Empty) returns (ReloadConfigResponse);
+
+    // TailLog returns log output of a process as a stream.
     rpc TailLog(TailLogRequest) returns (stream TailLogResponse);
+
+    // SignalProcess sends a signal to a set of processes.
     rpc SignalProcess(SignalProcessRequest) returns (google.protobuf.Empty);
+
+    // SignalProcess sends a signal to all processes.
     rpc SignalAllProcesses(SignalProcessRequest) returns (ProcessInfoResponse);
+
+    // DumpConfig returns the fully rendered configuration data.
     rpc DumpConfig(google.protobuf.Empty) returns (DumpConfigResponse);
 }
 
@@ -81,7 +111,11 @@ message SignalProcessRequest {
     string signal = 4;
 }
 
-// NotStartedError is used as an error detail
+// NotStartedError is used as error detail on the errors returned
+// by some calls. It signifies that some processes did not start
+// successfully.
 message NotStartedError {
+    // processNames holds the names of the processes that did not
+    // successfully start.
     repeated string processNames = 1;
 }

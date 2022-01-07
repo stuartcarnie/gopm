@@ -23,20 +23,6 @@ export class GopmClient {
                response: service_pb.StartStopResponse) => void
   ): grpcWeb.ClientReadableStream<service_pb.StartStopResponse>;
 
-  stopProcess(
-    request: service_pb.StartStopRequest,
-    metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: service_pb.StartStopResponse) => void
-  ): grpcWeb.ClientReadableStream<service_pb.StartStopResponse>;
-
-  restartProcess(
-    request: service_pb.StartStopRequest,
-    metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: service_pb.StartStopResponse) => void
-  ): grpcWeb.ClientReadableStream<service_pb.StartStopResponse>;
-
   startAllProcesses(
     request: service_pb.StartStopAllRequest,
     metadata: grpcWeb.Metadata | undefined,
@@ -44,12 +30,26 @@ export class GopmClient {
                response: service_pb.ProcessInfoResponse) => void
   ): grpcWeb.ClientReadableStream<service_pb.ProcessInfoResponse>;
 
+  stopProcess(
+    request: service_pb.StartStopRequest,
+    metadata: grpcWeb.Metadata | undefined,
+    callback: (err: grpcWeb.Error,
+               response: service_pb.StartStopResponse) => void
+  ): grpcWeb.ClientReadableStream<service_pb.StartStopResponse>;
+
   stopAllProcesses(
     request: service_pb.StartStopAllRequest,
     metadata: grpcWeb.Metadata | undefined,
     callback: (err: grpcWeb.Error,
                response: service_pb.ProcessInfoResponse) => void
   ): grpcWeb.ClientReadableStream<service_pb.ProcessInfoResponse>;
+
+  restartProcess(
+    request: service_pb.StartStopRequest,
+    metadata: grpcWeb.Metadata | undefined,
+    callback: (err: grpcWeb.Error,
+               response: service_pb.StartStopResponse) => void
+  ): grpcWeb.ClientReadableStream<service_pb.StartStopResponse>;
 
   shutdown(
     request: google_protobuf_empty_pb.Empty,
@@ -108,25 +108,25 @@ export class GopmPromiseClient {
     metadata?: grpcWeb.Metadata
   ): Promise<service_pb.StartStopResponse>;
 
-  stopProcess(
-    request: service_pb.StartStopRequest,
-    metadata?: grpcWeb.Metadata
-  ): Promise<service_pb.StartStopResponse>;
-
-  restartProcess(
-    request: service_pb.StartStopRequest,
-    metadata?: grpcWeb.Metadata
-  ): Promise<service_pb.StartStopResponse>;
-
   startAllProcesses(
     request: service_pb.StartStopAllRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<service_pb.ProcessInfoResponse>;
 
+  stopProcess(
+    request: service_pb.StartStopRequest,
+    metadata?: grpcWeb.Metadata
+  ): Promise<service_pb.StartStopResponse>;
+
   stopAllProcesses(
     request: service_pb.StartStopAllRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<service_pb.ProcessInfoResponse>;
+
+  restartProcess(
+    request: service_pb.StartStopRequest,
+    metadata?: grpcWeb.Metadata
+  ): Promise<service_pb.StartStopResponse>;
 
   shutdown(
     request: google_protobuf_empty_pb.Empty,

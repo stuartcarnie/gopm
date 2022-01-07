@@ -20,6 +20,19 @@ waitfile a.txt
 cmp a.txt expect-a1.txt
 ! exists stop-failures.txt
 
+# Stop b only, which should stop a, which depends on it.
+gopmctl --addr unix:gopm.socket stop b
+! exists stop-failures.txt
+! exists a.txt
+! exists b.txt
+exists c.txt
+exists d.txt
+
+# Start a, which should start a too.
+cp generation2.txt generation.txt
+gopmctl --addr unix:gopm.socket start a
+cmp a.txt expect-a2.txt
+
 # Shut everything down, which should shut all programs
 # down in dependency order.
 gopmctl --addr unix:gopm.socket shutdown
@@ -34,10 +47,14 @@ wait
 a0 [ b0 [ c0 [ d0 ] ] [ d0 ] ] [ c0 [ d0 ] ]
 -- expect-a1.txt --
 a1 [ b1 [ c1 [ d0 ] ] [ d0 ] ] [ c1 [ d0 ] ]
+-- expect-a2.txt --
+a2 [ b2 [ c1 [ d0 ] ] [ d0 ] ] [ c1 [ d0 ] ]
 -- generation0.txt --
 0
 -- generation1.txt --
 1
+-- generation2.txt --
+2
 -- extra-config.cue --
 
 // This won't have any effect on how the program runs,

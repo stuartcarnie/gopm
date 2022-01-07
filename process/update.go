@@ -196,40 +196,33 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 // stopChangedProcesses stops any processes that need to be updated.
 // It returns a map keyed by the names of all such processes.
 func (pm *Manager) stopChangedProcesses(ctx context.Context, newConfig *config.Config) (map[string]bool, error) {
-	changed := make(map[string]bool)
-	for name, oldp := range pm.config.Programs {
-		newp := newConfig.Programs[name]
-		if reflect.DeepEqual(newp, oldp) {
-			// TODO we could potentially be less conservative and avoid
-			// tearing down the process when a new command doesn't actually
-			// need to be run.
-			continue
-		}
-		changed[name] = true
-	}
-	if len(changed) == 0 {
-		return nil, nil
-	}
-	for name := range pm.processes {
-		walkChanged(pm.config, name, changed)
-	}
-	if _, err := pm.stopProcesses(ctx, func(p *config.Program) bool {
-		return changed[p.Name]
-	}); err != nil {
-		return nil, err
-	}
-	return changed, nil
+	return pm.stopProcesses(ctx, func(p *config.Program) bool {
+		return !reflect.DeepEqual(newConfig.Programs[p.Name], pm.config.Programs[p.Name])
+	})
 }
 
-// stopProcesses asks all the processes for which shouldStop returns true to stop.
-// It stops them in reverse dependency order and waits
-// for them to be stopped.
+// stopProcesses stops every process p for which shouldStop(p) returns true and all the processes that
+// transitively depend on those. It stops dependees before the processes that they depend on.
+// It returns a map keyed by all the processes that have been stopped.
 //
-// It returns the processes that were stopped.
-func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(*config.Program) bool) ([]*process, error) {
+// This method must be called with pm.mu locked (either read-only or read-write).
+func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(p *config.Program) bool) (map[string]bool, error) {
+	stopping := make(map[string]bool)
+	for _, p := range pm.config.Programs {
+		if shouldStop(p) {
+			stopping[p.Name] = true
+		}
+	}
+	// Mark every process that depends on the stopping processes
+	// to be stopped too.
+	for _, p := range pm.config.Programs {
+		if pm.dependsOn(p, stopping) {
+			stopping[p.Name] = true
+		}
+	}
+
 	// In reverse topological order, stop each process that's marked to be stopped.
 	progCohorts := pm.config.TopoSortedPrograms
-	var stopped []*process
 	for i := len(progCohorts) - 1; i >= 0; i-- {
 		var waitFor []*process
 		for _, p := range progCohorts[i] {
@@ -238,13 +231,12 @@ func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(*config.Pr
 			if oldp == nil {
 				panic(fmt.Errorf("process %v not found", name))
 			}
-			if !shouldStop(pm.config.Programs[name]) {
+			if !stopping[name] {
 				continue
 			}
 			oldp.req <- processRequest{
 				kind: reqStop,
 			}
-			stopped = append(stopped, oldp)
 			waitFor = append(waitFor, oldp)
 		}
 		select {
@@ -253,20 +245,35 @@ func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(*config.Pr
 			return nil, ctx.Err()
 		}
 	}
-	return stopped, nil
+	return stopping, nil
 }
 
-// walkChanged sets any entries in the changed map that correspond to
-// names of processes with any dependencies that have changed.
-// This could be more efficient, but that almost certainly doesn't matter.
-func walkChanged(cfg *config.Config, name string, changed map[string]bool) bool {
-	p := cfg.Programs[name]
-	pchanged := false
+// dependsOn reports whether the process with the given name depends on
+// any of the processes with names in processNames.
+func (pm *Manager) dependsOn(p *config.Program, processNames map[string]bool) bool {
+	found := false
+	pm.walkDependencies(p, func(p *config.Program) bool {
+		if processNames[p.Name] {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+// walkDependencies calls f for all dependencies of p, which must exist within
+// p.config. If f returns false, walkDependencies will return immediately.
+//
+// walkDependencies must be called with pm.mu held (read-only or read-write).
+func (pm *Manager) walkDependencies(p *config.Program, f func(*config.Program) bool) bool {
+	if !f(p) {
+		return false
+	}
 	for _, dep := range p.DependsOn {
-		pchanged = walkChanged(cfg, dep, changed) || pchanged
+		if !pm.walkDependencies(pm.config.Programs[dep], f) {
+			return false
+		}
 	}
-	if pchanged {
-		changed[name] = true
-	}
-	return changed[name]
+	return true
 }

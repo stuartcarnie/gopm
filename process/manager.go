@@ -70,10 +70,10 @@ type ProcessInfo struct {
 func (pm *Manager) AllProcessInfo() []*ProcessInfo {
 	zap.L().Debug("Manager.AllProcessInfo")
 	reply := make(chan *ProcessInfo)
-	n := len(pm.sendAll(processRequest{
+	n := len(pm.send(processRequest{
 		kind:      reqInfo,
 		infoReply: reply,
-	}))
+	}, matchAll))
 	infos := make([]*ProcessInfo, 0, n)
 	for i := 0; i < n; i++ {
 		infos = append(infos, <-reply)
@@ -90,7 +90,7 @@ func (pm *Manager) RestartProcesses(name string, labels map[string]string) error
 	zap.L().Debug("Manager.RestartProcesses")
 	procs := pm.send(processRequest{
 		kind: reqRestart,
-	}, name, labels)
+	}, programMatcher(name, labels))
 	if len(procs) == 0 {
 		return ErrNotFound
 	}
@@ -104,7 +104,7 @@ func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig co
 	procs := pm.send(processRequest{
 		kind:   reqSignal,
 		signal: sig,
-	}, name, labels)
+	}, programMatcher(name, labels))
 	if len(procs) == 0 {
 		return ErrNotFound
 	}
@@ -118,9 +118,9 @@ func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig co
 // returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) StartAllProcesses() error {
 	zap.L().Debug("Manager.StartAllProcesses")
-	procs := pm.sendAll(processRequest{
+	procs := pm.send(processRequest{
 		kind: reqStart,
-	})
+	}, matchAll)
 	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
 	return pm.checkReady(procs)
 }
@@ -129,9 +129,9 @@ func (pm *Manager) StartAllProcesses() error {
 // returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
 	zap.L().Debug("Manager.StartProcesses")
-	procs := pm.send(processRequest{
+	procs := pm.sendWithDependencies(processRequest{
 		kind: reqStart,
-	}, name, labels)
+	}, programMatcher(name, labels))
 	if len(procs) == 0 {
 		return ErrNotFound
 	}
@@ -142,22 +142,25 @@ func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
 // StopAllProcesses stops all the processes managed by this manager
 func (pm *Manager) StopAllProcesses() {
 	zap.L().Debug("Manager.StopAllProcesses")
-	procs := pm.sendAll(processRequest{
-		kind: reqStop,
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	pm.stopProcesses(context.Background(), func(p *config.Program) bool {
+		return true
 	})
-	<-pm.notifier.watch(nil, procs, isStopped)
 }
 
 // StopProcesses stops all matching processes.
 func (pm *Manager) StopProcesses(name string, labels map[string]string) error {
 	zap.L().Debug("Manager.StopProcesses")
-	procs := pm.send(processRequest{
-		kind: reqStop,
-	}, name, labels)
-	if len(procs) == 0 {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	stopped, err := pm.stopProcesses(context.Background(), programMatcher(name, labels))
+	if err != nil {
+		return err
+	}
+	if len(stopped) == 0 {
 		return ErrNotFound
 	}
-	<-pm.notifier.watch(nil, procs, isStopped)
 	return nil
 }
 
@@ -193,7 +196,7 @@ func (pm *Manager) TailLog(ctx context.Context, p TailLogParams) error {
 	procs := pm.send(processRequest{
 		kind:        reqLogger,
 		loggerReply: reply,
-	}, p.Name, nil)
+	}, programMatcher(p.Name, nil))
 	if len(procs) == 0 {
 		return ErrNotFound
 	}
@@ -225,28 +228,48 @@ func (w *loggerWriter) Close() error {
 	return nil
 }
 
-// sendAll is like send but sends the request to all processes.
-func (pm *Manager) sendAll(req processRequest) []*process {
-	return pm.send(req, "", nil)
-}
-
-// send sends the given request to all processes with the given name
-// (if name is non-empty) and all the given labels.
-//
-// sendRequest("", nil) will send the request to all processes.
+// send sends the given request to all processes for which match returns true.
 //
 // It returns the processes that were sent the request.
-func (pm *Manager) send(req processRequest, name string, labels map[string]string) []*process {
+func (pm *Manager) send(req processRequest, match func(p *config.Program) bool) []*process {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
+	return pm._send(req, match)
+}
+
+// sendWithDependencies is like send except that it also sends the request to all dependencies too.
+func (pm *Manager) sendWithDependencies(req processRequest, match func(p *config.Program) bool) []*process {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	allDeps := make(map[*config.Program]bool)
+	for _, p := range pm.config.Programs {
+		if !match(p) {
+			continue
+		}
+		pm.walkDependencies(p, func(p *config.Program) bool {
+			allDeps[p] = true
+			return true
+		})
+	}
+	return pm._send(req, func(p *config.Program) bool {
+		return allDeps[p]
+	})
+}
+
+func (pm *Manager) _send(req processRequest, match func(p *config.Program) bool) []*process {
 	procs := make([]*process, 0, len(pm.processes))
-	for _, p := range pm.processes {
-		if pm.match(p, name, labels) {
-			p.req <- req
-			procs = append(procs, p)
+	for _, p := range pm.config.Programs {
+		if match(p) {
+			proc := pm.processes[p.Name]
+			proc.req <- req
+			procs = append(procs, proc)
 		}
 	}
 	return procs
+}
+
+func matchAll(*config.Program) bool {
+	return true
 }
 
 func programMatcher(name string, labels map[string]string) func(*config.Program) bool {

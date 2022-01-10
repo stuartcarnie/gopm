@@ -31,6 +31,10 @@ func TestScript(t *testing.T) {
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
 			"waitfile": waitfile,
 		},
+		Setup: func(env *testscript.Env) error {
+			env.Setenv("GOTRACEBACK", "all")
+			return nil
+		},
 	})
 }
 

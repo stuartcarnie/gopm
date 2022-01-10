@@ -257,3 +257,23 @@ export namespace SignalProcessRequest {
   }
 }
 
+export class NotStartedError extends jspb.Message {
+  getProcessnamesList(): Array<string>;
+  setProcessnamesList(value: Array<string>): NotStartedError;
+  clearProcessnamesList(): NotStartedError;
+  addProcessnames(value: string, index?: number): NotStartedError;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): NotStartedError.AsObject;
+  static toObject(includeInstance: boolean, msg: NotStartedError): NotStartedError.AsObject;
+  static serializeBinaryToWriter(message: NotStartedError, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): NotStartedError;
+  static deserializeBinaryFromReader(message: NotStartedError, reader: jspb.BinaryReader): NotStartedError;
+}
+
+export namespace NotStartedError {
+  export type AsObject = {
+    processnamesList: Array<string>,
+  }
+}
+

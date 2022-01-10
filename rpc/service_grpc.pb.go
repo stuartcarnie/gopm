@@ -19,17 +19,36 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GopmClient interface {
+	// GetProcessInfo returns information on all current processes.
 	GetProcessInfo(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
+	// StartProcess requests that some set of processes should start.
+	// If some didn't start OK, the returned error includes a NotStartedError
+	// detail.
 	StartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
-	StopProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
-	RestartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
+	// StartAllProcesses requests that all processes should start.
+	// If not all succeeded in starting, the returned error includes a NotStartedError
+	// detail.
 	StartAllProcesses(ctx context.Context, in *StartStopAllRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
+	// StopProcess requests that some set of processes should stop.
+	StopProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
+	// StopProcess requests that all processes should stop.
 	StopAllProcesses(ctx context.Context, in *StartStopAllRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
+	// RestartProcess requests that some set of processes should start.
+	// If some didn't start again OK, the returned error includes a NotStartedError
+	// detail.
+	RestartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error)
+	// Shutdown shuts down the gopm server, stopping all processes first.
 	Shutdown(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	// ReloadConfig asks gopm to update its configuration by re-reading the configuration
+	// directory.
 	ReloadConfig(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ReloadConfigResponse, error)
+	// TailLog returns log output of a process as a stream.
 	TailLog(ctx context.Context, in *TailLogRequest, opts ...grpc.CallOption) (Gopm_TailLogClient, error)
+	// SignalProcess sends a signal to a set of processes.
 	SignalProcess(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// SignalProcess sends a signal to all processes.
 	SignalAllProcesses(ctx context.Context, in *SignalProcessRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error)
+	// DumpConfig returns the fully rendered configuration data.
 	DumpConfig(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*DumpConfigResponse, error)
 }
 
@@ -59,24 +78,6 @@ func (c *gopmClient) StartProcess(ctx context.Context, in *StartStopRequest, opt
 	return out, nil
 }
 
-func (c *gopmClient) StopProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error) {
-	out := new(StartStopResponse)
-	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/StopProcess", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gopmClient) RestartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error) {
-	out := new(StartStopResponse)
-	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/RestartProcess", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *gopmClient) StartAllProcesses(ctx context.Context, in *StartStopAllRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error) {
 	out := new(ProcessInfoResponse)
 	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/StartAllProcesses", in, out, opts...)
@@ -86,9 +87,27 @@ func (c *gopmClient) StartAllProcesses(ctx context.Context, in *StartStopAllRequ
 	return out, nil
 }
 
+func (c *gopmClient) StopProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error) {
+	out := new(StartStopResponse)
+	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/StopProcess", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *gopmClient) StopAllProcesses(ctx context.Context, in *StartStopAllRequest, opts ...grpc.CallOption) (*ProcessInfoResponse, error) {
 	out := new(ProcessInfoResponse)
 	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/StopAllProcesses", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gopmClient) RestartProcess(ctx context.Context, in *StartStopRequest, opts ...grpc.CallOption) (*StartStopResponse, error) {
+	out := new(StartStopResponse)
+	err := c.cc.Invoke(ctx, "/gopm.rpc.Gopm/RestartProcess", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,17 +195,36 @@ func (c *gopmClient) DumpConfig(ctx context.Context, in *empty.Empty, opts ...gr
 // All implementations must embed UnimplementedGopmServer
 // for forward compatibility
 type GopmServer interface {
+	// GetProcessInfo returns information on all current processes.
 	GetProcessInfo(context.Context, *empty.Empty) (*ProcessInfoResponse, error)
+	// StartProcess requests that some set of processes should start.
+	// If some didn't start OK, the returned error includes a NotStartedError
+	// detail.
 	StartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
-	StopProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
-	RestartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
+	// StartAllProcesses requests that all processes should start.
+	// If not all succeeded in starting, the returned error includes a NotStartedError
+	// detail.
 	StartAllProcesses(context.Context, *StartStopAllRequest) (*ProcessInfoResponse, error)
+	// StopProcess requests that some set of processes should stop.
+	StopProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
+	// StopProcess requests that all processes should stop.
 	StopAllProcesses(context.Context, *StartStopAllRequest) (*ProcessInfoResponse, error)
+	// RestartProcess requests that some set of processes should start.
+	// If some didn't start again OK, the returned error includes a NotStartedError
+	// detail.
+	RestartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error)
+	// Shutdown shuts down the gopm server, stopping all processes first.
 	Shutdown(context.Context, *empty.Empty) (*empty.Empty, error)
+	// ReloadConfig asks gopm to update its configuration by re-reading the configuration
+	// directory.
 	ReloadConfig(context.Context, *empty.Empty) (*ReloadConfigResponse, error)
+	// TailLog returns log output of a process as a stream.
 	TailLog(*TailLogRequest, Gopm_TailLogServer) error
+	// SignalProcess sends a signal to a set of processes.
 	SignalProcess(context.Context, *SignalProcessRequest) (*empty.Empty, error)
+	// SignalProcess sends a signal to all processes.
 	SignalAllProcesses(context.Context, *SignalProcessRequest) (*ProcessInfoResponse, error)
+	// DumpConfig returns the fully rendered configuration data.
 	DumpConfig(context.Context, *empty.Empty) (*DumpConfigResponse, error)
 	mustEmbedUnimplementedGopmServer()
 }
@@ -201,17 +239,17 @@ func (UnimplementedGopmServer) GetProcessInfo(context.Context, *empty.Empty) (*P
 func (UnimplementedGopmServer) StartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartProcess not implemented")
 }
-func (UnimplementedGopmServer) StopProcess(context.Context, *StartStopRequest) (*StartStopResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StopProcess not implemented")
-}
-func (UnimplementedGopmServer) RestartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RestartProcess not implemented")
-}
 func (UnimplementedGopmServer) StartAllProcesses(context.Context, *StartStopAllRequest) (*ProcessInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartAllProcesses not implemented")
 }
+func (UnimplementedGopmServer) StopProcess(context.Context, *StartStopRequest) (*StartStopResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopProcess not implemented")
+}
 func (UnimplementedGopmServer) StopAllProcesses(context.Context, *StartStopAllRequest) (*ProcessInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopAllProcesses not implemented")
+}
+func (UnimplementedGopmServer) RestartProcess(context.Context, *StartStopRequest) (*StartStopResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestartProcess not implemented")
 }
 func (UnimplementedGopmServer) Shutdown(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
@@ -280,42 +318,6 @@ func _Gopm_StartProcess_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Gopm_StopProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartStopRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GopmServer).StopProcess(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gopm.rpc.Gopm/StopProcess",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).StopProcess(ctx, req.(*StartStopRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Gopm_RestartProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartStopRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GopmServer).RestartProcess(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gopm.rpc.Gopm/RestartProcess",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GopmServer).RestartProcess(ctx, req.(*StartStopRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Gopm_StartAllProcesses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartStopAllRequest)
 	if err := dec(in); err != nil {
@@ -334,6 +336,24 @@ func _Gopm_StartAllProcesses_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Gopm_StopProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartStopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GopmServer).StopProcess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopm.rpc.Gopm/StopProcess",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GopmServer).StopProcess(ctx, req.(*StartStopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Gopm_StopAllProcesses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartStopAllRequest)
 	if err := dec(in); err != nil {
@@ -348,6 +368,24 @@ func _Gopm_StopAllProcesses_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GopmServer).StopAllProcesses(ctx, req.(*StartStopAllRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Gopm_RestartProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartStopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GopmServer).RestartProcess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopm.rpc.Gopm/RestartProcess",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GopmServer).RestartProcess(ctx, req.(*StartStopRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -479,20 +517,20 @@ var Gopm_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Gopm_StartProcess_Handler,
 		},
 		{
-			MethodName: "StopProcess",
-			Handler:    _Gopm_StopProcess_Handler,
-		},
-		{
-			MethodName: "RestartProcess",
-			Handler:    _Gopm_RestartProcess_Handler,
-		},
-		{
 			MethodName: "StartAllProcesses",
 			Handler:    _Gopm_StartAllProcesses_Handler,
 		},
 		{
+			MethodName: "StopProcess",
+			Handler:    _Gopm_StopProcess_Handler,
+		},
+		{
 			MethodName: "StopAllProcesses",
 			Handler:    _Gopm_StopAllProcesses_Handler,
+		},
+		{
+			MethodName: "RestartProcess",
+			Handler:    _Gopm_RestartProcess_Handler,
 		},
 		{
 			MethodName: "Shutdown",

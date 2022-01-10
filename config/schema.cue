@@ -76,6 +76,12 @@ config:  #Config
 	// a pseudo-target for a bunch of other dependencies.
 	command: string
 
+	// oneshot specifies that the command is always intended
+	// to run to completion. If this is true, start_seconds is ignored and
+	// the program will never enter the Running state - programs that
+	// depend on it will be started only when the command exits successfully.
+	oneshot?: bool
+
 	// shell specifies the shell command to use to interpret the
 	// above command. The shell is invoked as $shell -c $command.
 	shell?: string
@@ -182,6 +188,7 @@ config:  #Config
 		start_retries:             *3 | _
 		start_seconds:             *"1s" | _
 		auto_start:                *true | _
+		oneshot:                   *false | _
 		auto_restart:              *false | _
 		restart_file_pattern:      *"*" | _
 		stop_signals:              *["INT", "KILL"] | _

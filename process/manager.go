@@ -10,6 +10,7 @@ import (
 
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/logger"
+	"github.com/stuartcarnie/gopm/rpc"
 )
 
 // ErrNotFound is returned when a multi-process operation is
@@ -80,7 +81,8 @@ func (pm *Manager) AllProcessInfo() []*ProcessInfo {
 	return infos
 }
 
-// RestartProcesses restarts all matching processes.
+// RestartProcesses restarts all matching processes. If some failed to restart, it
+// returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) RestartProcesses(name string, labels map[string]string) error {
 	procs := pm.send(processRequest{
 		kind: reqRestart,
@@ -89,7 +91,7 @@ func (pm *Manager) RestartProcesses(name string, labels map[string]string) error
 		return ErrNotFound
 	}
 	<-pm.notifier.watch(nil, procs, isReady)
-	return nil
+	return pm.checkReady(procs)
 }
 
 // SignalProcesses sends the given signal to all matching processes.
@@ -107,15 +109,18 @@ func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig co
 	return nil
 }
 
-// StartAllProcesses starts all the processes.
-func (pm *Manager) StartAllProcesses() {
+// StartAllProcesses starts all the processes. If some failed to start, it
+// returns an *rpc.NotStartedError describing the processes that didn't.
+func (pm *Manager) StartAllProcesses() error {
 	procs := pm.sendAll(processRequest{
 		kind: reqStart,
 	})
 	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
+	return pm.checkReady(procs)
 }
 
-// StopProcesses starts all matching processes.
+// StartProcesses starts all matching processes. If some failed to start, it
+// returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
 	procs := pm.send(processRequest{
 		kind: reqStart,
@@ -124,7 +129,7 @@ func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
 		return ErrNotFound
 	}
 	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
-	return nil
+	return pm.checkReady(procs)
 }
 
 // StopAllProcesses stops all the processes managed by this manager
@@ -145,6 +150,23 @@ func (pm *Manager) StopProcesses(name string, labels map[string]string) error {
 	}
 	<-pm.notifier.watch(nil, procs, isStopped)
 	return nil
+}
+
+func (pm *Manager) checkReady(procs []*process) error {
+	if failedProcs := pm.notifier.check(procs, isReady); len(failedProcs) > 0 {
+		return &rpc.NotStartedError{
+			ProcessNames: procNames(failedProcs),
+		}
+	}
+	return nil
+}
+
+func procNames(procs []*process) []string {
+	names := make([]string, len(procs))
+	for i, p := range procs {
+		names[i] = p.name
+	}
+	return names
 }
 
 type TailLogParams struct {

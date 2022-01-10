@@ -2,12 +2,12 @@ package gopmctlcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/stuartcarnie/gopm/rpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var startOpt = struct {
@@ -25,13 +25,20 @@ var startCmd = cobra.Command{
 				Labels: labels,
 			}
 			_, err := control.client.StartProcess(context.Background(), &req)
-			if status.Code(err) == codes.NotFound {
-				fmt.Printf("No processes found: name=%q labels=%s\n", name, labels)
-			} else if err != nil {
+			var notStartedErr *rpc.NotStartedError
+			switch {
+			case errors.Is(err, rpc.ErrNotFound):
+				fmt.Fprintf(os.Stderr, "No processes found: name=%q labels=%s\n", name, labels)
+			case errors.As(err, &notStartedErr):
+				fmt.Fprintf(os.Stderr, "Some processes failed to start:\n")
+				for _, name := range notStartedErr.ProcessNames {
+					fmt.Fprintf(os.Stderr, "\t%s\n", name)
+				}
+			case err != nil:
 				return err
 			}
-
-			return nil
+			cmd.SilenceErrors = true
+			return err
 		}
 		if len(args) == 0 {
 			if err := start("", startOpt.labels); err != nil {

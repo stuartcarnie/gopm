@@ -187,6 +187,7 @@ func (p *process) run() {
 	// anywhere other than in the select statement below - it should always
 	// be ready to accept commands on p.req.
 	for {
+		p.zlog.Debug("loop", zap.Stringer("state", p.state))
 		switch p.state {
 		case Starting, Backoff:
 			if p.depsWatch == nil {
@@ -220,12 +221,15 @@ func (p *process) run() {
 				p.zlog.Info("start")
 
 				// Wake up when the command has been running long enough
-				// to mark it as such.
+				// to mark it as such (or only when the command exits if it's
+				// a one-shot command).
 				p.startTime = time.Now()
 				p.stopTime = time.Time{}
-				timer.Reset(p.config.StartSeconds.D)
+				if !p.config.Oneshot {
+					timer.Reset(p.config.StartSeconds.D)
+				}
 			}
-			if p.cmd != nil && time.Since(p.startTime) >= p.config.StartSeconds.D {
+			if p.cmd != nil && !p.config.Oneshot && time.Since(p.startTime) >= p.config.StartSeconds.D {
 				// The command has been running for long enough to go
 				// into the Running state.
 				p.state = Running
@@ -271,6 +275,7 @@ func (p *process) run() {
 		if p.cronTimer != nil {
 			cronTimerC = p.cronTimer.C
 		}
+		p.zlog.Debug("waiting for event", zap.Stringer("state", p.state))
 		select {
 		case req, ok := <-p.req:
 			if !ok {
@@ -457,9 +462,9 @@ func (p *process) handleRequest(req processRequest) {
 			p.state = Starting
 		}
 	case reqStop, reqRestart:
-		if p.cmd == nil {
+		if p.cmd == nil || p.state == Backoff {
 			p.state = Stopped
-		} else if p.state != Backoff {
+		} else {
 			p.state = Stopping
 			p.setStopSignals()
 		}

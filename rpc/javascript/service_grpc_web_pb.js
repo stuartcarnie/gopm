@@ -236,166 +236,6 @@ proto.gopm.rpc.GopmPromiseClient.prototype.startProcess =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.gopm.rpc.StartStopRequest,
- *   !proto.gopm.rpc.StartStopResponse>}
- */
-const methodDescriptor_Gopm_StopProcess = new grpc.web.MethodDescriptor(
-  '/gopm.rpc.Gopm/StopProcess',
-  grpc.web.MethodType.UNARY,
-  proto.gopm.rpc.StartStopRequest,
-  proto.gopm.rpc.StartStopResponse,
-  /**
-   * @param {!proto.gopm.rpc.StartStopRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.gopm.rpc.StartStopResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.gopm.rpc.StartStopRequest,
- *   !proto.gopm.rpc.StartStopResponse>}
- */
-const methodInfo_Gopm_StopProcess = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.gopm.rpc.StartStopResponse,
-  /**
-   * @param {!proto.gopm.rpc.StartStopRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.gopm.rpc.StartStopResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.gopm.rpc.StartStopRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.gopm.rpc.StartStopResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.gopm.rpc.StartStopResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.gopm.rpc.GopmClient.prototype.stopProcess =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/gopm.rpc.Gopm/StopProcess',
-      request,
-      metadata || {},
-      methodDescriptor_Gopm_StopProcess,
-      callback);
-};
-
-
-/**
- * @param {!proto.gopm.rpc.StartStopRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.gopm.rpc.StartStopResponse>}
- *     Promise that resolves to the response
- */
-proto.gopm.rpc.GopmPromiseClient.prototype.stopProcess =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/gopm.rpc.Gopm/StopProcess',
-      request,
-      metadata || {},
-      methodDescriptor_Gopm_StopProcess);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.gopm.rpc.StartStopRequest,
- *   !proto.gopm.rpc.StartStopResponse>}
- */
-const methodDescriptor_Gopm_RestartProcess = new grpc.web.MethodDescriptor(
-  '/gopm.rpc.Gopm/RestartProcess',
-  grpc.web.MethodType.UNARY,
-  proto.gopm.rpc.StartStopRequest,
-  proto.gopm.rpc.StartStopResponse,
-  /**
-   * @param {!proto.gopm.rpc.StartStopRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.gopm.rpc.StartStopResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.gopm.rpc.StartStopRequest,
- *   !proto.gopm.rpc.StartStopResponse>}
- */
-const methodInfo_Gopm_RestartProcess = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.gopm.rpc.StartStopResponse,
-  /**
-   * @param {!proto.gopm.rpc.StartStopRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.gopm.rpc.StartStopResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.gopm.rpc.StartStopRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.gopm.rpc.StartStopResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.gopm.rpc.StartStopResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.gopm.rpc.GopmClient.prototype.restartProcess =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/gopm.rpc.Gopm/RestartProcess',
-      request,
-      metadata || {},
-      methodDescriptor_Gopm_RestartProcess,
-      callback);
-};
-
-
-/**
- * @param {!proto.gopm.rpc.StartStopRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.gopm.rpc.StartStopResponse>}
- *     Promise that resolves to the response
- */
-proto.gopm.rpc.GopmPromiseClient.prototype.restartProcess =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/gopm.rpc.Gopm/RestartProcess',
-      request,
-      metadata || {},
-      methodDescriptor_Gopm_RestartProcess);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
  *   !proto.gopm.rpc.StartStopAllRequest,
  *   !proto.gopm.rpc.ProcessInfoResponse>}
  */
@@ -476,6 +316,86 @@ proto.gopm.rpc.GopmPromiseClient.prototype.startAllProcesses =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.gopm.rpc.StartStopRequest,
+ *   !proto.gopm.rpc.StartStopResponse>}
+ */
+const methodDescriptor_Gopm_StopProcess = new grpc.web.MethodDescriptor(
+  '/gopm.rpc.Gopm/StopProcess',
+  grpc.web.MethodType.UNARY,
+  proto.gopm.rpc.StartStopRequest,
+  proto.gopm.rpc.StartStopResponse,
+  /**
+   * @param {!proto.gopm.rpc.StartStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.StartStopResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.gopm.rpc.StartStopRequest,
+ *   !proto.gopm.rpc.StartStopResponse>}
+ */
+const methodInfo_Gopm_StopProcess = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.gopm.rpc.StartStopResponse,
+  /**
+   * @param {!proto.gopm.rpc.StartStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.StartStopResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.gopm.rpc.StartStopRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.gopm.rpc.StartStopResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.gopm.rpc.StartStopResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.gopm.rpc.GopmClient.prototype.stopProcess =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/gopm.rpc.Gopm/StopProcess',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_StopProcess,
+      callback);
+};
+
+
+/**
+ * @param {!proto.gopm.rpc.StartStopRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.gopm.rpc.StartStopResponse>}
+ *     Promise that resolves to the response
+ */
+proto.gopm.rpc.GopmPromiseClient.prototype.stopProcess =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/gopm.rpc.Gopm/StopProcess',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_StopProcess);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.gopm.rpc.StartStopAllRequest,
  *   !proto.gopm.rpc.ProcessInfoResponse>}
  */
@@ -550,6 +470,86 @@ proto.gopm.rpc.GopmPromiseClient.prototype.stopAllProcesses =
       request,
       metadata || {},
       methodDescriptor_Gopm_StopAllProcesses);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.gopm.rpc.StartStopRequest,
+ *   !proto.gopm.rpc.StartStopResponse>}
+ */
+const methodDescriptor_Gopm_RestartProcess = new grpc.web.MethodDescriptor(
+  '/gopm.rpc.Gopm/RestartProcess',
+  grpc.web.MethodType.UNARY,
+  proto.gopm.rpc.StartStopRequest,
+  proto.gopm.rpc.StartStopResponse,
+  /**
+   * @param {!proto.gopm.rpc.StartStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.StartStopResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.gopm.rpc.StartStopRequest,
+ *   !proto.gopm.rpc.StartStopResponse>}
+ */
+const methodInfo_Gopm_RestartProcess = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.gopm.rpc.StartStopResponse,
+  /**
+   * @param {!proto.gopm.rpc.StartStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.StartStopResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.gopm.rpc.StartStopRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.gopm.rpc.StartStopResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.gopm.rpc.StartStopResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.gopm.rpc.GopmClient.prototype.restartProcess =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/gopm.rpc.Gopm/RestartProcess',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_RestartProcess,
+      callback);
+};
+
+
+/**
+ * @param {!proto.gopm.rpc.StartStopRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.gopm.rpc.StartStopResponse>}
+ *     Promise that resolves to the response
+ */
+proto.gopm.rpc.GopmPromiseClient.prototype.restartProcess =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/gopm.rpc.Gopm/RestartProcess',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_RestartProcess);
 };
 
 

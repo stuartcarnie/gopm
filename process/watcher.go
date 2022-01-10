@@ -1,6 +1,7 @@
 package process
 
 import (
+	"log"
 	"sync"
 )
 
@@ -34,7 +35,7 @@ func (w *stateNotifier) close() {
 func (w *stateNotifier) setState(p *process, state State) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.state[p] != state {
+	if current, ok := w.state[p]; !ok || current != state {
 		w.state[p] = state
 		w.changed.Broadcast()
 	}
@@ -78,6 +79,35 @@ func (w *stateNotifier) watch(cancel <-chan struct{}, procs []*process, f func(S
 		}
 	}()
 	return c
+}
+
+// check checks that the state of all the given processes satisfies f.
+// It returns any processes that don't (or nil if w has been closed).
+//
+// If a process has gone away, f is deemed as satisfied for that process.
+func (w *stateNotifier) check(procs []*process, f func(State) bool) []*process {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	log.Printf("stateNotifier.check {")
+	defer log.Printf("} stateNotifier.Check")
+	if w.closed {
+		log.Printf("stateNotifier is closed")
+		return nil
+	}
+	var unsatisfied []*process
+	for _, p := range procs {
+		state, ok := w.state[p]
+		if !ok {
+			log.Printf("no process found")
+			// The process has gone away so we consider the state satisfied.
+			continue
+		}
+		log.Printf("process %v: %v", p.name, state)
+		if !f(state) {
+			unsatisfied = append(unsatisfied, p)
+		}
+	}
+	return unsatisfied
 }
 
 func isReady(s State) bool {

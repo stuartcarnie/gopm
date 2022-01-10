@@ -289,6 +289,7 @@ type Program struct {
 	ExitCodes               []int             `json:"exit_codes"`
 	RestartPause            Duration          `json:"restart_pause"`
 	StartRetries            int               `json:"start_retries"`
+	Oneshot                 bool              `json:"oneshot"`
 	StartSeconds            Duration          `json:"start_seconds"`
 	Cron                    *CronSchedule     `json:"cron,omitempty"`
 	AutoStart               bool              `json:"auto_start"`

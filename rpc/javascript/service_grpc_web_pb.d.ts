@@ -91,6 +91,11 @@ export class GopmClient {
                response: service_pb.DumpConfigResponse) => void
   ): grpcWeb.ClientReadableStream<service_pb.DumpConfigResponse>;
 
+  watchState(
+    request: google_protobuf_empty_pb.Empty,
+    metadata?: grpcWeb.Metadata
+  ): grpcWeb.ClientReadableStream<service_pb.WatchStateResponse>;
+
 }
 
 export class GopmPromiseClient {
@@ -157,6 +162,11 @@ export class GopmPromiseClient {
     request: google_protobuf_empty_pb.Empty,
     metadata?: grpcWeb.Metadata
   ): Promise<service_pb.DumpConfigResponse>;
+
+  watchState(
+    request: google_protobuf_empty_pb.Empty,
+    metadata?: grpcWeb.Metadata
+  ): grpcWeb.ClientReadableStream<service_pb.WatchStateResponse>;
 
 }
 

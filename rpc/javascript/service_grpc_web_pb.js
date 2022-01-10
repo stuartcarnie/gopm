@@ -1028,5 +1028,80 @@ proto.gopm.rpc.GopmPromiseClient.prototype.dumpConfig =
 };
 
 
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.google.protobuf.Empty,
+ *   !proto.gopm.rpc.WatchStateResponse>}
+ */
+const methodDescriptor_Gopm_WatchState = new grpc.web.MethodDescriptor(
+  '/gopm.rpc.Gopm/WatchState',
+  grpc.web.MethodType.SERVER_STREAMING,
+  google_protobuf_empty_pb.Empty,
+  proto.gopm.rpc.WatchStateResponse,
+  /**
+   * @param {!proto.google.protobuf.Empty} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.WatchStateResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.google.protobuf.Empty,
+ *   !proto.gopm.rpc.WatchStateResponse>}
+ */
+const methodInfo_Gopm_WatchState = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.gopm.rpc.WatchStateResponse,
+  /**
+   * @param {!proto.google.protobuf.Empty} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.gopm.rpc.WatchStateResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.gopm.rpc.WatchStateResponse>}
+ *     The XHR Node Readable Stream
+ */
+proto.gopm.rpc.GopmClient.prototype.watchState =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/gopm.rpc.Gopm/WatchState',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_WatchState);
+};
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.gopm.rpc.WatchStateResponse>}
+ *     The XHR Node Readable Stream
+ */
+proto.gopm.rpc.GopmPromiseClient.prototype.watchState =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/gopm.rpc.Gopm/WatchState',
+      request,
+      metadata || {},
+      methodDescriptor_Gopm_WatchState);
+};
+
+
 module.exports = proto.gopm.rpc;
 

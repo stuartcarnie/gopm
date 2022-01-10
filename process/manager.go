@@ -181,6 +181,17 @@ func (pm *Manager) TailLog(ctx context.Context, p TailLogParams) error {
 	return nil
 }
 
+// WatchState watches for changes to the current program state, calling
+// update when it does.
+func (pm *Manager) WatchState(ctx context.Context, update func(map[string]State)) error {
+	closed := pm.notifier.watchAll(ctx.Done(), update)
+	select {
+	case <-ctx.Done():
+	case <-closed:
+	}
+	return nil
+}
+
 type loggerWriter struct {
 	io.Writer
 	closed chan struct{}

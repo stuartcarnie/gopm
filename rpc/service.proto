@@ -18,6 +18,7 @@ service Gopm {
     rpc SignalProcess(SignalProcessRequest) returns (google.protobuf.Empty);
     rpc SignalAllProcesses(SignalProcessRequest) returns (ProcessInfoResponse);
     rpc DumpConfig(google.protobuf.Empty) returns (DumpConfigResponse);
+    rpc WatchState(google.protobuf.Empty) returns (stream WatchStateResponse);
 }
 
 message VersionResponse {
@@ -72,6 +73,15 @@ message TailLogRequest {
 
 message TailLogResponse {
     bytes lines = 1;
+}
+
+message WatchStateResponse {
+	repeated ProcessStateInfo processes = 1;
+}
+
+message ProcessStateInfo {
+    string name = 1;
+    string state = 8;
 }
 
 message SignalProcessRequest {

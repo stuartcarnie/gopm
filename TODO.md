@@ -1,8 +1,8 @@
 ## core
 
-- [ ] respect topological order when stopping processes on request
+- [x] respect topological order when starting and stopping processes on request
 - [x] allow empty commands
-- [ ] oneshot attribute
+- [x] oneshot attribute
 - [ ] file tree watching
 - [ ] add `-a` (`--all`) flag to `gopmctl logs` command to print all the available logs for a process
 - [x] implement process signaling

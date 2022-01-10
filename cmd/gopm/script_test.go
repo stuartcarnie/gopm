@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -29,7 +30,8 @@ func TestScript(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir: "testdata",
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
-			"waitfile": waitfile,
+			"waitfile":   waitfile,
+			"appendfile": appendfile,
 		},
 		Setup: func(env *testscript.Env) error {
 			env.Setenv("GOTRACEBACK", "all")
@@ -96,6 +98,35 @@ func signalNotifyCmd(cont bool, sigStr string, startFile, interruptedFile string
 		if !cont {
 			return nil
 		}
+	}
+}
+
+// appendfile appends the contents of the second argument file
+// to the first.
+// 	appendfile a b
+// is like:
+//	cat b >> a
+func appendfile(ts *testscript.TestScript, neg bool, args []string) {
+	if neg {
+		ts.Fatalf("appendfile doesn't support negation")
+	}
+	if len(args) != 2 {
+		ts.Fatalf("usage: appendfile dstfile appendfile")
+	}
+	dstFilePath := ts.MkAbs(args[0])
+	appendFilePath := ts.MkAbs(args[1])
+	dstFile, err := os.OpenFile(dstFilePath, os.O_WRONLY|os.O_APPEND, 0o666)
+	if err != nil {
+		ts.Fatalf("cannot open destination file: %v", err)
+	}
+	defer dstFile.Close()
+	appendFile, err := os.Open(appendFilePath)
+	if err != nil {
+		ts.Fatalf("cannot open append file: %v", err)
+	}
+	defer appendFile.Close()
+	if _, err := io.Copy(dstFile, appendFile); err != nil {
+		ts.Fatalf("error copying data: %v", err)
 	}
 }
 

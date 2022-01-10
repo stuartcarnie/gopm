@@ -1,47 +1,118 @@
-# Test that programs are started in reverse-dependency order.
+# Test that programs are started and stopped in dependency order.
+cp generation0.txt generation.txt
+
 gopm -c gopmconfig --quit-delay 0 &
+waitfile  gopm.socket
+
+# Test that everything starts up OK.
 waitfile a.txt
-cmp a.txt expect-a.txt
+cmp a.txt expect-a0.txt
+
+# Adjust the configuration a bit and reload, which changes c,
+# so only c and programs that depend on it should be reloaded.
+# Update the generation file first so that we can see which
+# ones have re-run.
+cp generation1.txt generation.txt
+rm a.txt
+appendfile gopmconfig/config.cue extra-config.cue
+gopmctl --addr unix:gopm.socket reload
+waitfile a.txt
+cmp a.txt expect-a1.txt
+! exists stop-failures.txt
+
+# Stop b only, which should stop a, which depends on it.
+gopmctl --addr unix:gopm.socket stop b
+! exists stop-failures.txt
+! exists a.txt
+! exists b.txt
+exists c.txt
+exists d.txt
+
+# Start a, which should start a too.
+cp generation2.txt generation.txt
+gopmctl --addr unix:gopm.socket start a
+cmp a.txt expect-a2.txt
+
+# Shut everything down, which should shut all programs
+# down in dependency order.
 gopmctl --addr unix:gopm.socket shutdown
 wait
+! exists stop-failures.txt
+! exists a.txt
+! exists b.txt
+! exists c.txt
+! exists d.txt
+
+-- expect-a0.txt --
+a0 [ b0 [ c0 [ d0 ] ] [ d0 ] ] [ c0 [ d0 ] ]
+-- expect-a1.txt --
+a1 [ b1 [ c1 [ d0 ] ] [ d0 ] ] [ c1 [ d0 ] ]
+-- expect-a2.txt --
+a2 [ b2 [ c1 [ d0 ] ] [ d0 ] ] [ c1 [ d0 ] ]
+-- generation0.txt --
+0
+-- generation1.txt --
+1
+-- generation2.txt --
+2
+-- extra-config.cue --
+
+// This won't have any effect on how the program runs,
+// but should cause it to restart, thus triggering restarts
+// of the programs that depend on it.
+config: programs: c: start_retries: 10
 
 -- gopmconfig/config.cue --
 package config
+import "strings"
+
+#Prog: {
+	name: _
+	depends_on: [... string]
+	// Example command:
+	// 	sleep 0.5
+	//	echo "a [ $(cat b.txt) ] [ $(cat c.txt) ] > a.txt
+	command: """
+		sleep 0.25
+		echo "\(name)$(cat generation.txt)\(strings.Join([
+			for dep in depends_on {
+				" [ $(cat \(dep).txt) ]"
+			},
+		], ""))" > \(name).txt
+
+		# Make sure the script itself continues when the sleep is killed.
+		trap " " INT
+
+		# Wait until we're interrupted
+		sleep 20
+
+		# When we're interrupted, remove our own file. The files
+		# of our dependencies should still be there.
+		rm \(name).txt
+		for dep in \(strings.Join(depends_on, " ")); do
+			if ! test -f $dep.txt; then
+				echo \(name): dependency $dep removed too early >> stop-failures.txt
+			fi
+		done
+
+		# Wait a little bit to make sure that the stop logic really is waiting correctly.
+		sleep 0.25
+
+	"""
+	start_seconds: "1s"
+	...
+}
 
 config: {
 	grpc_server: {
 		network: "unix"
 		address: "gopm.socket"
 	}
-	programs: [_]: start_seconds: "1s"
+	programs: [_]: #Prog
 	programs: {
-		a: {
-			command: """
-				echo "a [ $(cat b.txt) ] [ $(cat c.txt) ]" > a.txt
-				"""
-			depends_on: ["b", "c"]
-		}
-		b: {
-			command: """
-				sleep 0.5
-				echo "b [ $(cat c.txt) ] [ $(cat d.txt) ]" > b.txt
-				"""
-			depends_on: ["c", "d"]
-		}
-		c: {
-			command: """
-				sleep 0.5
-				echo "c [ $(cat d.txt) ]" > c.txt
-				"""
-			depends_on: ["d"]
-		}
-		d: {
-			command: """
-				sleep 0.5
-				echo d > d.txt
-				"""
-		}
+		a: depends_on: ["b", "c"]
+		b: depends_on: ["c", "d"]
+		c: depends_on: ["d"]
+		d: {}
 	}
 }
--- expect-a.txt --
-a [ b [ c [ d ] ] [ d ] ] [ c [ d ] ]

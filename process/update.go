@@ -11,7 +11,7 @@ import (
 
 // UpdatePrograms updates the programs run by the manager.
 func (pm *Manager) Update(ctx context.Context, config *config.Config) error {
-	zap.L().Debug("Manager.Update")
+	zap.L().Debug("Manager.Update", zap.Int("program-count", len(config.Programs)))
 	reply := make(chan error, 1)
 	pm.updateConfigc <- &updateConfigReq{
 		config: config,
@@ -33,12 +33,21 @@ type updateConfigReq struct {
 // updateProc runs as a goroutine that's responsible for managing the updating
 // of the entire configuration. It only lets one configuration change proceed
 // at any one time, aborting a previous change if a new one arrives.
+//
+// It also monitors the current state of all processes and notifies processes
+// when their dependencies have changed readiness.
 func (pm *Manager) updateProc() {
 	var (
 		cancelUpdate func()
 		currReq      *updateConfigReq
 		updateDone   chan struct{}
+		currentState = make(map[string]State)
+		stateChanged = make(chan map[string]State)
 	)
+	pm.notifier.watchAll(nil, func(states map[string]State) {
+		stateChanged <- states
+	})
+
 	defer func() {
 		if currReq != nil {
 			cancelUpdate()
@@ -77,8 +86,57 @@ func (pm *Manager) updateProc() {
 			cancelUpdate = nil
 			currReq = nil
 			updateDone = nil
+		case currentState = <-stateChanged:
+		}
+		if currReq == nil {
+			// No current update in progress, so update everyone's readiness status.
+			pm.updateDepsReady(currentState)
 		}
 	}
+}
+
+func (pm *Manager) updateDepsReady(currentState map[string]State) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	// TODO resolve config with existing deps
+	// Tell all processes whether their deps are ready,
+	// causing paused processes to resume if appropriate.
+	for p, depsReady := range pm.getDepsReady(currentState) {
+		p.req <- processRequest{
+			kind:      reqDepsReady,
+			depsReady: depsReady,
+		}
+	}
+}
+
+// getDepsReady returns a map holding whether each process in pm is ready with
+// respect to its dependencies and the given state.
+func (pm *Manager) getDepsReady(state map[string]State) map[*process]bool {
+	ready := make(map[*process]bool)
+	for _, p := range pm.processes {
+		pm.markReady(p, ready, state)
+	}
+	return ready
+}
+
+// markReady marks in ready whether p's dependencies are ready
+// and returns whether p itself is ready.
+func (pm *Manager) markReady(p *process, ready map[*process]bool, state map[string]State) bool {
+	pDepsReady, ok := ready[p]
+	if ok {
+		return pDepsReady && isReady(state[p.name])
+	}
+	pDepsReady = true
+	for _, dep := range pm.config.Programs[p.name].DependsOn {
+		p := pm.processes[dep]
+		if p == nil {
+			pDepsReady = false
+			continue
+		}
+		pDepsReady = pm.markReady(p, ready, state) && pDepsReady
+	}
+	ready[p] = pDepsReady
+	return pDepsReady && isReady(state[p.name])
 }
 
 func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) error {
@@ -86,24 +144,7 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 	// if they were already started.
 
 	pm.mu.RLock()
-
-	// Find out the current state of all processes so that we can
-	// restart them if needed after updating their configuration.
-	reply := make(chan *ProcessInfo)
-	req := processRequest{
-		kind:      reqInfo,
-		infoReply: reply,
-	}
-	for _, p := range pm.processes {
-		p.req <- req
-	}
-	needStart := make(map[string]bool)
-	for i := 0; i < len(pm.processes); i++ {
-		info := <-reply
-		needStart[info.Name] = info.State != Stopping && info.State != Stopped
-	}
-
-	_, err := pm.stopChangedProcesses(ctx, newConfig)
+	_, err := pm.pauseChangedProcesses(ctx, newConfig)
 	pm.mu.RUnlock()
 	if err != nil {
 		return fmt.Errorf("cannot stop processes: %v", err)
@@ -123,7 +164,7 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 	// after we acquire the lock here.
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	changed, err := pm.stopChangedProcesses(ctx, newConfig)
+	changed, err := pm.pauseChangedProcesses(ctx, newConfig)
 	if err != nil {
 		return fmt.Errorf("cannot stop processes (second time): %v", err)
 	}
@@ -136,88 +177,54 @@ func (pm *Manager) updateConfig(ctx context.Context, newConfig *config.Config) e
 		}
 	}
 	// Create any new processes and update the old ones
-	// (in topological order so we can present each process with
-	// the correct dependencies).
 	//
 	// Note that each process will independently wait
 	// for its own dependencies to become ready before
 	// starting.
-	for _, newps := range newConfig.TopoSortedPrograms {
-		for _, newp := range newps {
-			name := newp.Name
-			if !changed[name] && pm.processes[name] != nil {
-				continue
-			}
-			deps := make([]*process, len(newp.DependsOn))
-			for i, dep := range newp.DependsOn {
-				deps[i] = pm.processes[dep]
-				if deps[i] == nil {
-					panic("topological order issue?")
-				}
-			}
-			oldp := pm.processes[name]
-			if oldp == nil {
-				// It's a new process, so create it.
-				initialState := Stopped
-				if newp.AutoStart {
-					initialState = Starting
-				}
-				newp := &process{
-					name:      name,
-					notifier:  pm.notifier,
-					req:       make(chan processRequest),
-					config:    newp,
-					state:     initialState,
-					dependsOn: deps,
-				}
-				pm.notifier.setState(newp, initialState)
-				pm.processes[name] = newp
-				go newp.run()
-				continue
-			}
-			// Update an existing process.
+	for _, newp := range newConfig.Programs {
+		name := newp.Name
+		if !changed[name] && pm.processes[name] != nil {
+			continue
+		}
+		if oldp := pm.processes[name]; oldp != nil {
+			// Update an existing process, which also implicitly
+			// marks its dependencies as not ready.
 			oldp.req <- processRequest{
 				kind:      reqUpdate,
 				newConfig: newp,
-				newDeps:   deps,
 			}
-			if needStart[name] {
-				// The process wasn't stopped before, so start it again now.
-				oldp.req <- processRequest{
-					kind: reqStart,
-				}
+			oldp.req <- processRequest{
+				kind: reqResume,
 			}
+		} else {
+			// It's a new process, so create it.
+			pm.processes[name] = newProcess(newp, pm.notifier)
 		}
 	}
 	pm.config = newConfig
 	return nil
 }
 
-// stopChangedProcesses stops any processes that need to be updated.
+// pauseChangedProcesses pauses any processes that need to be updated.
 // It returns a map keyed by the names of all such processes.
-func (pm *Manager) stopChangedProcesses(ctx context.Context, newConfig *config.Config) (map[string]bool, error) {
-	return pm.stopProcesses(ctx, func(p *config.Program) bool {
+func (pm *Manager) pauseChangedProcesses(ctx context.Context, newConfig *config.Config) (map[string]bool, error) {
+	return pm.stopOrPauseProcesses(ctx, func(p *config.Program) bool {
 		return !reflect.DeepEqual(newConfig.Programs[p.Name], pm.config.Programs[p.Name])
-	})
+	}, reqPause)
 }
 
-// stopProcesses stops every process p for which shouldStop(p) returns true and all the processes that
+// stopOrPauseProcesses sends the given stop request (either reqStop or reqPause)
+// to process p for which shouldStop(p) returns true. It sends reqPause to all the processes that
 // transitively depend on those. It stops dependees before the processes that they depend on.
-// It returns a map keyed by all the processes that have been stopped.
+// It returns a map keyed by the processes that have been stopped or paused.
 //
 // This method must be called with pm.mu locked (either read-only or read-write).
-func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(p *config.Program) bool) (map[string]bool, error) {
-	stopping := make(map[string]bool)
-	for _, p := range pm.config.Programs {
-		if shouldStop(p) {
-			stopping[p.Name] = true
-		}
-	}
-	// Mark every process that depends on the stopping processes
-	// to be stopped too.
-	for _, p := range pm.config.Programs {
-		if pm.dependsOn(p, stopping) {
-			stopping[p.Name] = true
+func (pm *Manager) stopOrPauseProcesses(ctx context.Context, shouldStop func(p *config.Program) bool, stopReq processRequestKind) (map[string]bool, error) {
+	stopping := make(map[string]bool) // all stopped processes.
+	deps := getDeps(pm.config, shouldStop)
+	for name, kind := range deps {
+		if kind != depDependedOn {
+			stopping[name] = true
 		}
 	}
 
@@ -234,13 +241,21 @@ func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(p *config.
 			if !stopping[name] {
 				continue
 			}
+			kind := stopReq
+			if deps[name]&depTarget == 0 {
+				// Pause it because it depends on the target set of processes
+				// but isn't targeted itself.
+				kind = reqPause
+			}
 			oldp.req <- processRequest{
-				kind: reqStop,
+				kind: kind,
 			}
 			waitFor = append(waitFor, oldp)
 		}
+		// TODO if someone starts one of the waitFor processes while we're waiting, this
+		// could block indefinitely.
 		select {
-		case <-pm.notifier.watch(ctx.Done(), waitFor, isStopped):
+		case <-pm.notifier.watch(ctx.Done(), waitFor, isStoppedOrPaused):
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -248,32 +263,48 @@ func (pm *Manager) stopProcesses(ctx context.Context, shouldStop func(p *config.
 	return stopping, nil
 }
 
-// dependsOn reports whether the process with the given name depends on
-// any of the processes with names in processNames.
-func (pm *Manager) dependsOn(p *config.Program, processNames map[string]bool) bool {
-	found := false
-	pm.walkDependencies(p, func(p *config.Program) bool {
-		if processNames[p.Name] {
-			found = true
-			return false
-		}
-		return true
-	})
-	return found
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.1.8 -type depKind
+
+type depKind int
+
+const (
+	depDependsOn depKind = 1 << iota
+	depDependedOn
+	depTarget
+)
+
+// getDeps returns map that holds the relationship of each program in cfg
+// with any program for which isTarget returns true.
+//
+// Note that it's possible for a program to be all of a dependency, a dependant
+// and a target.
+func getDeps(cfg *config.Config, isTarget func(*config.Program) bool) map[string]depKind {
+	deps := make(map[string]depKind)
+	for _, p := range cfg.Programs {
+		walkDeps(cfg, p, isTarget, false, deps)
+	}
+	return deps
 }
 
-// walkDependencies calls f for all dependencies of p, which must exist within
-// p.config. If f returns false, walkDependencies will return immediately.
-//
-// walkDependencies must be called with pm.mu held (read-only or read-write).
-func (pm *Manager) walkDependencies(p *config.Program, f func(*config.Program) bool) bool {
-	if !f(p) {
-		return false
+// walkDeps is used by getDeps to walk the dependencies of p and populate deps.
+// isChild holds whether p is a child of some target; it returns whether p or any child of
+// is a target.
+func walkDeps(cfg *config.Config, p *config.Program, isTarget func(*config.Program) bool, isChild bool, deps map[string]depKind) bool {
+	if isChild {
+		deps[p.Name] |= depDependedOn
 	}
-	for _, dep := range p.DependsOn {
-		if !pm.walkDependencies(pm.config.Programs[dep], f) {
-			return false
-		}
+	pIsTarget := isTarget(p)
+	if pIsTarget {
+		deps[p.Name] |= depTarget
+		isChild = true
 	}
-	return true
+	isParent := false
+	for _, name := range p.DependsOn {
+		isParent = walkDeps(cfg, cfg.Programs[name], isTarget, isChild, deps) || isParent
+	}
+	if isParent {
+		deps[p.Name] |= depDependsOn
+		return true
+	}
+	return pIsTarget
 }

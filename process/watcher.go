@@ -81,6 +81,45 @@ func (w *stateNotifier) watch(cancel <-chan struct{}, procs []*process, f func(S
 	return c
 }
 
+// watchAll watches for changes to the current state and calls f
+// every time it does. The value passed to f holds the current state of all programs
+// keyed by program name.
+//
+// It returns a channel that is closed if w is shut down. If that happens,
+// f won't be called again.
+//
+// f is always called immediately with the current state before waiting.
+//
+// If cancel is closed, the associated goroutine will eventually
+// be shut down.
+func (w *stateNotifier) watchAll(cancel <-chan struct{}, f func(map[string]State)) <-chan struct{} {
+	closed := make(chan struct{})
+	go func() {
+		w.mu.RLock()
+		defer w.mu.RUnlock()
+		for {
+			if w.closed {
+				close(closed)
+				return
+			}
+			select {
+			case <-cancel:
+				return
+			default:
+			}
+			m := make(map[string]State)
+			for p, state := range w.state {
+				m[p.name] = state
+			}
+			w.mu.RUnlock()
+			f(m)
+			w.mu.RLock()
+			w.changed.Wait()
+		}
+	}()
+	return closed
+}
+
 // check checks that the state of all the given processes satisfies f.
 // It returns any processes that don't (or nil if w has been closed).
 //
@@ -118,8 +157,12 @@ func isReadyOrFailed(s State) bool {
 	return s == Running || s == Exited || s == Fatal
 }
 
-func isStopped(s State) bool {
-	return s == Stopped
+func isReadyOrFailedOrStopped(s State) bool {
+	return isReadyOrFailed(s) || s == Stopped
+}
+
+func isStoppedOrPaused(s State) bool {
+	return s == Stopped || s == Paused
 }
 
 func (w *stateNotifier) allStatesSatisfy(procs []*process, f func(State) bool) bool {

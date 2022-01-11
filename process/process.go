@@ -14,40 +14,23 @@ import (
 	"github.com/stuartcarnie/gopm/signals"
 )
 
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.1.8 -type State
+
 // State represents the state of a process
 type State int
 
 const (
-	Stopped State = iota
+	Invalid State = iota
 	Starting
 	Running
 	Backoff
 	Stopping
+	Pausing
+	Paused
+	Stopped
 	Exited
 	Fatal
 )
-
-// String returns p as a human readable string
-func (p State) String() string {
-	switch p {
-	case Stopped:
-		return "Stopped"
-	case Starting:
-		return "Starting"
-	case Running:
-		return "Running"
-	case Backoff:
-		return "Backoff"
-	case Stopping:
-		return "Stopping"
-	case Exited:
-		return "Exited"
-	case Fatal:
-		return "Fatal"
-	default:
-		return "Unknown"
-	}
-}
 
 //go:generate go run golang.org/x/tools/cmd/stringer@v0.1.8 -type processRequestKind
 
@@ -55,12 +38,27 @@ type processRequestKind int
 
 const (
 	reqInvalid processRequestKind = iota
-	reqUpdate
+	// reqStart asks a process to start.
 	reqStart
+	// reqStart asks a process to stop.
 	reqStop
-	reqRestart
+	// reqPause prepares for an update or restart by stopping a process;
+	// it will become Paused if it was previously running or failed, or
+	// Stopped otherwise.
+	reqPause
+	// reqResume starts a process if it's paused; it's a no-op
+	// if the process is stopped.
+	reqResume
+	// reqUpdate updates a process's configuration.
+	reqUpdate
+	// reqDepsReady informs a process about whether its dependencies
+	// are currently ready or not.
+	reqDepsReady
+	// reqInfo asks for information on a process.
 	reqInfo
+	// reqLogger asks for the logger associated with a process.
 	reqLogger
+	// reqSignal sends a signal to a process.
 	reqSignal
 )
 
@@ -69,7 +67,6 @@ type processRequest struct {
 
 	// reqUpdate
 	newConfig *config.Program
-	newDeps   []*process
 
 	// reqInfo
 	infoReply chan<- *ProcessInfo
@@ -79,6 +76,9 @@ type processRequest struct {
 
 	// reqSignal
 	signal config.Signal
+
+	// reqDepsReady
+	depsReady bool
 }
 
 type process struct {
@@ -101,9 +101,6 @@ type process struct {
 
 	// state holds the current state of the process.
 	state State
-
-	// dependsOn holds the process's dependencies.
-	dependsOn []*process
 
 	// cmd holds the currently running command if any.
 	cmd *exec.Cmd
@@ -139,25 +136,9 @@ type process struct {
 	// was moved into Starting state.
 	startCount int
 
-	// depsRunning holds whether all the dependencies are considered
-	// to be currently running.
-	depsRunning bool
-
-	// totalStartCount holds the number of times the command
-	// has been started.
-	totalStartCount int
-
-	// wantStartCount holds the number of times we want the
-	// command to have been started.
-	wantStartCount int
-
-	// depsWatch is a channel returned by p.notifier.watch
-	// and is closed when all our dependencies
-	// are ready.
-	depsWatch <-chan struct{}
-
-	// watchStopper is used to tear down the above watcher.
-	watchStopper chan struct{}
+	// depsReady holds whether all the dependencies are considered
+	// to be currently ready.
+	depsReady bool
 
 	// logger is used for logging process output.
 	logger *logger.Logger
@@ -165,6 +146,23 @@ type process struct {
 	// zlog is an annotated logger for the process.
 	// TODO maybe this should also log to logger.
 	zlog *zap.Logger
+}
+
+// newProcess creates a new process from the given configuration and starts it running.
+func newProcess(cfg *config.Program, notifier *stateNotifier) *process {
+	p := &process{
+		name:     cfg.Name,
+		notifier: notifier,
+		req:      make(chan processRequest),
+		config:   cfg,
+		state:    Stopped,
+	}
+	if cfg.AutoStart {
+		p.state = Starting
+	}
+	notifier.setState(p, p.state)
+	go p.run()
+	return p
 }
 
 func (p *process) run() {
@@ -179,7 +177,6 @@ func (p *process) run() {
 	defer p.logger.Close()
 	timer := time.NewTimer(time.Minute)
 	timer.Stop()
-	defer p.stopDepsWatch()
 	p.startCron()
 
 	// Loop waiting for events, and letting p.state largely dictate what we
@@ -190,21 +187,12 @@ func (p *process) run() {
 		p.zlog.Debug("loop", zap.Stringer("state", p.state))
 		switch p.state {
 		case Starting, Backoff:
-			if p.depsWatch == nil {
-				// We don't know whether all our dependencies have started, so start a watcher
-				// to find out.
-
-				p.startDepsWatch()
+			if !p.depsReady {
 				break
 			}
-			if !p.depsRunning {
-				break
-			}
-			p.stopDepsWatch()
 			if p.cmd == nil && time.Since(p.stopTime) >= p.config.RestartPause.D {
 				// It's time to start the command.
 				p.startCount++
-				p.totalStartCount++
 				p.startTime = time.Now()
 				p.stopTime = time.Time{}
 				if p.config.Command == "" {
@@ -236,7 +224,7 @@ func (p *process) run() {
 				p.startCount = 0
 				timer.Stop()
 			}
-		case Stopping:
+		case Stopping, Pausing:
 			// When we're stopping, p.stopSignals keeps track of the next signal
 			// in the sequence of signals to send. It's moved on one element for
 			// every stop attempt.
@@ -258,24 +246,16 @@ func (p *process) run() {
 			p.stopSignals = p.stopSignals[1:]
 			p.killTime = time.Now()
 			timer.Reset(p.config.StopWaitSeconds.D)
-		case Stopped:
-		case Running:
-		case Exited:
-		case Fatal:
 		}
 
 		// Notify everyone else of our current state.
 		p.notifier.setState(p, p.state)
-		if p.state != Starting && p.state != Backoff {
-			// We don't need to watch for dependencies unless we're trying
-			// to start a command.
-			p.stopDepsWatch()
-		}
 		var cronTimerC <-chan time.Time
 		if p.cronTimer != nil {
 			cronTimerC = p.cronTimer.C
 		}
-		p.zlog.Debug("waiting for event", zap.Stringer("state", p.state))
+		p.zlog.Debug("select", zap.Stringer("state", p.state))
+	selection:
 		select {
 		case req, ok := <-p.req:
 			if !ok {
@@ -287,7 +267,11 @@ func (p *process) run() {
 				return
 			}
 			// We've got a request from outside.
-			p.zlog.Info("handle request", zap.Stringer("kind", req.kind))
+			if req.kind == reqDepsReady {
+				p.zlog.Info("handle request", zap.Stringer("kind", req.kind), zap.Bool("ready", req.depsReady))
+			} else {
+				p.zlog.Info("handle request", zap.Stringer("kind", req.kind))
+			}
 			p.handleRequest(req)
 
 		case exit := <-p.cmdWait:
@@ -299,14 +283,13 @@ func (p *process) run() {
 			p.startTime = time.Time{}
 			p.killTime = time.Time{}
 			p.stopTime = time.Now()
-			if p.state == Stopping {
-				// TODO Should we log any unexpected exit status here?
-				if p.needsRestart() {
-					p.state = Starting
-				} else {
-					p.state = Stopped
-				}
-				break
+			switch p.state {
+			case Pausing:
+				p.state = Paused
+				break selection
+			case Stopping:
+				p.state = Stopped
+				break selection
 			}
 			okExit := p.isExpectedExit(exit)
 			// With the default value (nil) of AutoRestart, we'll restart
@@ -327,11 +310,6 @@ func (p *process) run() {
 			// Wake up when we can try again.
 			p.state = Backoff
 			timer.Reset(p.config.RestartPause.D)
-
-		case <-p.depsWatch:
-			// Our dependencies have become ready.
-			p.zlog.Info("dependencies are ready")
-			p.depsRunning = true
 
 		case <-timer.C:
 			// A previously configured timer event has fired.
@@ -368,26 +346,6 @@ func (p *process) signal(sig config.Signal) error {
 	return signals.Kill(p.cmd.Process, sig.S, true)
 }
 
-// startDepsWatch starts a watcher to notify this process when
-// its dependencies are all running.
-func (p *process) startDepsWatch() {
-	p.stopDepsWatch()
-	p.watchStopper = make(chan struct{})
-	p.depsWatch = p.notifier.watch(p.watchStopper, p.dependsOn, isReady)
-	p.depsRunning = false // Assume they're not running until proven otherwise.
-}
-
-func (p *process) stopDepsWatch() {
-	p.depsRunning = false
-	if p.watchStopper == nil {
-		return
-	}
-	close(p.watchStopper)
-	p.watchStopper = nil
-	p.depsWatch = nil
-	p.depsRunning = false
-}
-
 func (p *process) isExpectedExit(err error) bool {
 	if err == nil {
 		// TODO Should we really treat a zero exit code as "expected"
@@ -401,18 +359,6 @@ func (p *process) isExpectedExit(err error) bool {
 		}
 	}
 	return false
-}
-
-func (p *process) setNeedsRestart(need bool) {
-	if need {
-		p.wantStartCount = p.totalStartCount + 1
-	} else {
-		p.wantStartCount = p.totalStartCount
-	}
-}
-
-func (p *process) needsRestart() bool {
-	return p.totalStartCount < p.wantStartCount
 }
 
 func (p *process) startCommand() error {
@@ -452,23 +398,61 @@ func (p *process) startCommand() error {
 func (p *process) handleRequest(req processRequest) {
 	switch req.kind {
 	case reqUpdate:
-		p.handleUpdate(req.newConfig, req.newDeps)
+		p.handleUpdate(req.newConfig)
 	case reqStart:
 		switch p.state {
 		case Running, Starting:
 			// No need to do anything - we're already started or are trying to start.
 		default:
-			// Ignore any current exited, failed or backoff status.
-			p.state = Starting
+			if p.cmd != nil {
+				// TODO This case can happen if reqStart is sent while we're midway
+				// through stopping a process. What should we do in this case?
+				// The command is running, which means
+				// that we can't just ignore it, but we've probably just sent it a signal,
+				// which will cause it to exit, but then if it hasn't got auto-restart configured,
+				// it won't start again, which doesn't fit well with the intention of reqStart.
+				p.state = Running
+			} else {
+				// Ignore any current exited, failed or backoff status.
+				p.state = Starting
+			}
 		}
-	case reqStop, reqRestart:
-		if p.cmd == nil || p.state == Backoff {
+	case reqStop:
+		if p.cmd == nil {
 			p.state = Stopped
-		} else {
+		} else if p.state != Stopping {
 			p.state = Stopping
 			p.setStopSignals()
 		}
-		p.setNeedsRestart(req.kind == reqRestart)
+	case reqPause:
+		if p.cmd == nil {
+			// There's no running command so we know that the process state is
+			// one of Backoff, Starting, Stopped, Paused, Exited or Fatal.
+			switch p.state {
+			case Starting, Backoff, Exited, Fatal:
+				p.state = Paused
+			case Stopped, Paused:
+			default:
+				panic("unexpected state " + p.state.String())
+			}
+		} else {
+			// There's a running command so we know that the process state is
+			// one of Starting, Running, Stopping or Pausing.
+			switch p.state {
+			case Starting, Running:
+				p.state = Pausing
+				p.setStopSignals()
+			case Stopping, Pausing:
+			default:
+				panic("unexpected state " + p.state.String())
+			}
+		}
+	case reqResume:
+		if p.state == Paused {
+			p.state = Starting
+		}
+	case reqDepsReady:
+		p.depsReady = req.depsReady
 	case reqLogger:
 		req.loggerReply <- p.logger
 	case reqInfo:
@@ -498,17 +482,15 @@ func (p *process) info() *ProcessInfo {
 }
 
 // The program's configuration has changed.
-func (p *process) handleUpdate(newConfig *config.Program, deps []*process) {
+func (p *process) handleUpdate(newConfig *config.Program) {
 	if p.cmd != nil {
 		// We should never be sent an update when we're not stopped.
 		panic(fmt.Errorf("configuration update sent while process is in state %v", p.state))
 	}
-	p.state = Stopped // Note: the updater will start us if we were started before.
 	p.config = newConfig
-	p.dependsOn = deps
+	p.depsReady = false
 	p.exitStatus = nil
 	p.startCount = 0
-	p.depsRunning = false
 	p.startCron()
 }
 

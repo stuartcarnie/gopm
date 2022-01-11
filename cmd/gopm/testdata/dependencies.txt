@@ -9,7 +9,7 @@ waitfile a.txt
 cmp a.txt expect-a0.txt
 
 # Adjust the configuration a bit and reload, which changes c,
-# so only c and programs that depend on it should be reloaded.
+# so only c and programs that depend (a and b) on it should be reloaded.
 # Update the generation file first so that we can see which
 # ones have re-run.
 cp generation1.txt generation.txt
@@ -20,7 +20,7 @@ waitfile a.txt
 cmp a.txt expect-a1.txt
 ! exists stop-failures.txt
 
-# Stop b only, which should stop a, which depends on it.
+# Stop b only, which should pause a, which depends on it.
 gopmctl --addr unix:gopm.socket stop b
 ! exists stop-failures.txt
 ! exists a.txt
@@ -28,10 +28,36 @@ gopmctl --addr unix:gopm.socket stop b
 exists c.txt
 exists d.txt
 
-# Start a, which should start a too.
+# Start a, which should start b too.
 cp generation2.txt generation.txt
 gopmctl --addr unix:gopm.socket start a
 cmp a.txt expect-a2.txt
+
+# Try a similar sequence but start b instead, to check
+# that dependants are only paused, not stopped for good.
+gopmctl --addr unix:gopm.socket stop b
+! exists stop-failures.txt
+! exists a.txt
+! exists b.txt
+exists c.txt
+exists d.txt
+cp generation3.txt generation.txt
+gopmctl --addr unix:gopm.socket start b
+waitfile a.txt
+cmp a.txt expect-a3.txt
+
+# One more time: start b when a is stopped to check
+# that dependants aren't started unless they're already running.
+gopmctl --addr unix:gopm.socket stop a b
+! exists stop-failures.txt
+! exists a.txt
+! exists b.txt
+exists c.txt
+exists d.txt
+cp generation4.txt generation.txt
+gopmctl --addr unix:gopm.socket start b
+! exists a.txt
+cmp b.txt expect-b4.txt
 
 # Shut everything down, which should shut all programs
 # down in dependency order.
@@ -49,12 +75,20 @@ a0 [ b0 [ c0 [ d0 ] ] [ d0 ] ] [ c0 [ d0 ] ]
 a1 [ b1 [ c1 [ d0 ] ] [ d0 ] ] [ c1 [ d0 ] ]
 -- expect-a2.txt --
 a2 [ b2 [ c1 [ d0 ] ] [ d0 ] ] [ c1 [ d0 ] ]
+-- expect-a3.txt --
+a3 [ b3 [ c1 [ d0 ] ] [ d0 ] ] [ c1 [ d0 ] ]
+-- expect-b4.txt --
+b4 [ c1 [ d0 ] ] [ d0 ]
 -- generation0.txt --
 0
 -- generation1.txt --
 1
 -- generation2.txt --
 2
+-- generation3.txt --
+3
+-- generation4.txt --
+4
 -- extra-config.cue --
 
 // This won't have any effect on how the program runs,
@@ -73,6 +107,7 @@ import "strings"
 	// 	sleep 0.5
 	//	echo "a [ $(cat b.txt) ] [ $(cat c.txt) ] > a.txt
 	command: """
+		echo --- \(name) running
 		sleep 0.25
 		echo "\(name)$(cat generation.txt)\(strings.Join([
 			for dep in depends_on {
@@ -80,15 +115,19 @@ import "strings"
 			},
 		], ""))" > \(name).txt
 
+		echo --- \(name) wrote file $(cat \(name).txt)
+
 		# Make sure the script itself continues when the sleep is killed.
 		trap " " INT
 
 		# Wait until we're interrupted
 		sleep 20
 
+		echo --- \(name) interrupted
+
 		# When we're interrupted, remove our own file. The files
 		# of our dependencies should still be there.
-		rm \(name).txt
+		rm -f \(name).txt
 		for dep in \(strings.Join(depends_on, " ")); do
 			if ! test -f $dep.txt; then
 				echo \(name): dependency $dep removed too early >> stop-failures.txt
@@ -100,6 +139,7 @@ import "strings"
 
 	"""
 	start_seconds: "1s"
+	logfile: "/dev/stderr"
 	...
 }
 

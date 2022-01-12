@@ -1,7 +1,6 @@
 package process
 
 import (
-	"log"
 	"sync"
 )
 
@@ -48,26 +47,20 @@ func (w *stateNotifier) remove(p *process) {
 	delete(w.state, p)
 }
 
-// watch returns a channel that's closed when when the value of
-// f(p[0].state) && f(p[1].state) && ... && f[p[len(procs)-1].state]
-// becomes true.
-//
-// If the stateWatcher is closed, the channel will never
-// be closed.
+// waitFor waits for all the given processes to reach a steady state, then sends
+// a slice of all the processes that haven't reached the desired state on the
+// returned channel.
 //
 // If cancel is closed, the associated goroutine will eventually
-// be shut down.
-func (w *stateNotifier) watch(cancel <-chan struct{}, procs []*process, f func(State) bool) <-chan struct{} {
-	c := make(chan struct{})
+// be shut down: no value will be sent on the returned channel.
+func (w *stateNotifier) waitFor(cancel <-chan struct{}, procs []*process, desired func(State) bool) <-chan []*process {
+	c := make(chan []*process, 1)
 	go func() {
 		w.mu.RLock()
 		defer w.mu.RUnlock()
 		for {
-			if w.closed {
-				return
-			}
-			if w.allStatesSatisfy(procs, f) {
-				close(c)
+			if w.closed || w.allStatesSatisfy(procs, isSteady) {
+				c <- w.unsatisfied(procs, desired)
 				return
 			}
 			select {
@@ -79,6 +72,21 @@ func (w *stateNotifier) watch(cancel <-chan struct{}, procs []*process, f func(S
 		}
 	}()
 	return c
+}
+
+func (w *stateNotifier) unsatisfied(procs []*process, f func(State) bool) []*process {
+	var unsatisfied []*process
+	for _, p := range procs {
+		state, ok := w.state[p]
+		if !ok {
+			// The process has gone away so we consider the state satisfied.
+			continue
+		}
+		if !f(state) {
+			unsatisfied = append(unsatisfied, p)
+		}
+	}
+	return unsatisfied
 }
 
 // watchAll watches for changes to the current state and calls f
@@ -120,35 +128,6 @@ func (w *stateNotifier) watchAll(cancel <-chan struct{}, f func(map[string]State
 	return closed
 }
 
-// check checks that the state of all the given processes satisfies f.
-// It returns any processes that don't (or nil if w has been closed).
-//
-// If a process has gone away, f is deemed as satisfied for that process.
-func (w *stateNotifier) check(procs []*process, f func(State) bool) []*process {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	log.Printf("stateNotifier.check {")
-	defer log.Printf("} stateNotifier.Check")
-	if w.closed {
-		log.Printf("stateNotifier is closed")
-		return nil
-	}
-	var unsatisfied []*process
-	for _, p := range procs {
-		state, ok := w.state[p]
-		if !ok {
-			log.Printf("no process found")
-			// The process has gone away so we consider the state satisfied.
-			continue
-		}
-		log.Printf("process %v: %v", p.name, state)
-		if !f(state) {
-			unsatisfied = append(unsatisfied, p)
-		}
-	}
-	return unsatisfied
-}
-
 func isReady(s State) bool {
 	return s == Running || s == Exited
 }
@@ -157,8 +136,8 @@ func isReadyOrFailed(s State) bool {
 	return s == Running || s == Exited || s == Fatal
 }
 
-func isReadyOrFailedOrStopped(s State) bool {
-	return isReadyOrFailed(s) || s == Stopped
+func isSteady(s State) bool {
+	return isReadyOrFailed(s) || s == Stopped || s == Paused
 }
 
 func isStoppedOrPaused(s State) bool {

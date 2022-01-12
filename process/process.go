@@ -65,6 +65,12 @@ const (
 type processRequest struct {
 	kind processRequestKind
 
+	// stateUpdated applies to all requests. If it's
+	// non-nil, the process sends a value on it just after
+	// it's updated its state in response to the request.
+	// The value is sent after sending on any other reply channel.
+	stateUpdated chan struct{}
+
 	// reqUpdate
 	newConfig *config.Program
 
@@ -91,6 +97,10 @@ type process struct {
 	// req holds the channel for making requests to
 	// the process's manager goroutine.
 	req chan processRequest
+
+	// stateUpdated is used to inform the last request when the process's
+	// state has been updated.
+	stateUpdated chan struct{}
 
 	// The following fields are managed by the process's manager
 	// goroutine:
@@ -250,6 +260,12 @@ func (p *process) run() {
 
 		// Notify everyone else of our current state.
 		p.notifier.setState(p, p.state)
+		if p.stateUpdated != nil {
+			// The last request that we handled needed to know
+			// when we've updated our state.
+			p.stateUpdated <- struct{}{}
+			p.stateUpdated = nil
+		}
 		var cronTimerC <-chan time.Time
 		if p.cronTimer != nil {
 			cronTimerC = p.cronTimer.C
@@ -272,6 +288,7 @@ func (p *process) run() {
 			} else {
 				p.zlog.Info("handle request", zap.Stringer("kind", req.kind))
 			}
+			p.stateUpdated = req.stateUpdated
 			p.handleRequest(req)
 
 		case exit := <-p.cmdWait:

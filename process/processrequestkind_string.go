@@ -9,18 +9,20 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[reqInvalid-0]
-	_ = x[reqUpdate-1]
-	_ = x[reqStart-2]
-	_ = x[reqStop-3]
-	_ = x[reqRestart-4]
-	_ = x[reqInfo-5]
-	_ = x[reqLogger-6]
-	_ = x[reqSignal-7]
+	_ = x[reqStart-1]
+	_ = x[reqStop-2]
+	_ = x[reqPause-3]
+	_ = x[reqResume-4]
+	_ = x[reqUpdate-5]
+	_ = x[reqDepsReady-6]
+	_ = x[reqInfo-7]
+	_ = x[reqLogger-8]
+	_ = x[reqSignal-9]
 }
 
-const _processRequestKind_name = "reqInvalidreqUpdatereqStartreqStopreqRestartreqInforeqLoggerreqSignal"
+const _processRequestKind_name = "reqInvalidreqStartreqStopreqPausereqResumereqUpdatereqDepsReadyreqInforeqLoggerreqSignal"
 
-var _processRequestKind_index = [...]uint8{0, 10, 19, 27, 34, 44, 51, 60, 69}
+var _processRequestKind_index = [...]uint8{0, 10, 18, 25, 33, 42, 51, 63, 70, 79, 88}
 
 func (i processRequestKind) String() string {
 	if i < 0 || i >= processRequestKind(len(_processRequestKind_index)-1) {

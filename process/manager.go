@@ -84,23 +84,9 @@ func (pm *Manager) AllProcessInfo() []*ProcessInfo {
 	return infos
 }
 
-// RestartProcesses restarts all matching processes. If some failed to restart, it
-// returns an *rpc.NotStartedError describing the processes that didn't.
-func (pm *Manager) RestartProcesses(name string, labels map[string]string) error {
-	zap.L().Debug("Manager.RestartProcesses")
-	procs := pm.send(processRequest{
-		kind: reqRestart,
-	}, programMatcher(name, labels))
-	if len(procs) == 0 {
-		return ErrNotFound
-	}
-	<-pm.notifier.watch(nil, procs, isReady)
-	return pm.checkReady(procs)
-}
-
 // SignalProcesses sends the given signal to all matching processes.
 func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig config.Signal) error {
-	zap.L().Debug("Manager.SignalProcesses")
+	zap.L().Debug("Manager.SignalProcesses", zap.String("name", name), zap.Any("labels", labels), zap.Stringer("signal", sig))
 	procs := pm.send(processRequest{
 		kind:   reqSignal,
 		signal: sig,
@@ -125,16 +111,36 @@ func (pm *Manager) StartAllProcesses() error {
 	return pm.checkReady(procs)
 }
 
-// StartProcesses starts all matching processes. If some failed to start, it
+// StartProcesses starts all matching processes and their dependencies.
+// If some failed to start, it
 // returns an *rpc.NotStartedError describing the processes that didn't.
 func (pm *Manager) StartProcesses(name string, labels map[string]string) error {
-	zap.L().Debug("Manager.StartProcesses")
-	procs := pm.sendWithDependencies(processRequest{
+	zap.L().Debug("Manager.StartProcesses", zap.String("name", name), zap.Any("labels", labels))
+	return pm.startProcesses(context.Background(), programMatcher(name, labels))
+}
+
+// startProcesses is the internal version of StartProcesses, also called by RestartProcesses.
+func (pm *Manager) startProcesses(ctx context.Context, match func(*config.Program) bool) error {
+	pm.mu.RLock()
+	deps := getDeps(pm.config, match)
+
+	procs := pm._send(processRequest{
 		kind: reqStart,
-	}, programMatcher(name, labels))
+	}, func(p *config.Program) bool {
+		return deps[p.Name]&(depTarget|depDependedOn) != 0
+	})
 	if len(procs) == 0 {
+		pm.mu.RUnlock()
 		return ErrNotFound
 	}
+	// Resume any processes that depend on the target set but
+	// were only paused. We won't wait for them.
+	pm._send(processRequest{
+		kind: reqResume,
+	}, func(p *config.Program) bool {
+		return deps[p.Name] == depDependsOn
+	})
+	pm.mu.RUnlock()
 	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
 	return pm.checkReady(procs)
 }
@@ -144,17 +150,22 @@ func (pm *Manager) StopAllProcesses() {
 	zap.L().Debug("Manager.StopAllProcesses")
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	pm.stopProcesses(context.Background(), func(p *config.Program) bool {
+	pm.stopOrPauseProcesses(context.Background(), func(p *config.Program) bool {
 		return true
-	})
+	}, reqStop)
 }
 
 // StopProcesses stops all matching processes.
 func (pm *Manager) StopProcesses(name string, labels map[string]string) error {
-	zap.L().Debug("Manager.StopProcesses")
+	zap.L().Debug("Manager.StopProcesses", zap.String("name", name), zap.Any("labels", labels))
+	return pm.stopProcesses(context.Background(), programMatcher(name, labels))
+}
+
+// stopProcesses is the internal version of StopProcesses. It's also invoked as part of RestartProcesses.
+func (pm *Manager) stopProcesses(ctx context.Context, match func(*config.Program) bool) error {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	stopped, err := pm.stopProcesses(context.Background(), programMatcher(name, labels))
+	stopped, err := pm.stopOrPauseProcesses(context.Background(), match, reqStop)
 	if err != nil {
 		return err
 	}
@@ -162,6 +173,18 @@ func (pm *Manager) StopProcesses(name string, labels map[string]string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// RestartProcesses restarts all matching processes by stopping them, then starting
+// them again.
+func (pm *Manager) RestartProcesses(name string, labels map[string]string) error {
+	zap.L().Debug("Manager.RestartProcesses", zap.String("name", name), zap.Any("labels", labels))
+	ctx := context.Background()
+	match := programMatcher(name, labels)
+	if err := pm.stopProcesses(ctx, match); err != nil {
+		return err
+	}
+	return pm.startProcesses(ctx, match)
 }
 
 func (pm *Manager) checkReady(procs []*process) error {
@@ -237,25 +260,7 @@ func (pm *Manager) send(req processRequest, match func(p *config.Program) bool) 
 	return pm._send(req, match)
 }
 
-// sendWithDependencies is like send except that it also sends the request to all dependencies too.
-func (pm *Manager) sendWithDependencies(req processRequest, match func(p *config.Program) bool) []*process {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
-	allDeps := make(map[*config.Program]bool)
-	for _, p := range pm.config.Programs {
-		if !match(p) {
-			continue
-		}
-		pm.walkDependencies(p, func(p *config.Program) bool {
-			allDeps[p] = true
-			return true
-		})
-	}
-	return pm._send(req, func(p *config.Program) bool {
-		return allDeps[p]
-	})
-}
-
+// _send is like send but doesn't acquire pm.mu.
 func (pm *Manager) _send(req processRequest, match func(p *config.Program) bool) []*process {
 	procs := make([]*process, 0, len(pm.processes))
 	for _, p := range pm.config.Programs {
@@ -289,9 +294,4 @@ func matchProgram(p *config.Program, name string, labels map[string]string) bool
 		}
 	}
 	return true
-}
-
-// match reports whether the p matches the given name and labels.
-func (pm *Manager) match(p *process, name string, labels map[string]string) bool {
-	return matchProgram(pm.config.Programs[p.name], name, labels)
 }

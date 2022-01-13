@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/stuartcarnie/gopm/config"
 	"go.uber.org/zap"
 )
 
 // UpdatePrograms updates the programs run by the manager.
-func (pm *Manager) Update(ctx context.Context, config *config.Config) error {
-	zap.L().Debug("Manager.Update", zap.Int("program-count", len(config.Programs)))
+func (pm *Manager) Update(ctx context.Context, config *config.Config) (_err error) {
+	zap.L().Debug("Manager.Update {", zap.Int("program-count", len(config.Programs)))
 	reply := make(chan error, 1)
 	pm.updateConfigc <- &updateConfigReq{
 		config: config,
@@ -40,7 +41,7 @@ func (pm *Manager) updateProc() {
 	var (
 		cancelUpdate func()
 		currReq      *updateConfigReq
-		updateDone   chan struct{}
+		updateDone   chan error
 		currentState = make(map[string]State)
 		stateChanged = make(chan map[string]State)
 	)
@@ -73,15 +74,14 @@ func (pm *Manager) updateProc() {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancelUpdate = cancel
 			currReq = req
-			donec := make(chan struct{}, 1)
+			donec := make(chan error, 1)
 			updateDone = donec
 			go func() {
-				defer close(donec)
-				pm.updateConfig(ctx, req.config)
+				donec <- pm.updateConfig(ctx, req.config)
 			}()
-		case <-updateDone:
+		case err := <-updateDone:
 			// Update complete, so reply to the originator and reset everything.
-			currReq.reply <- nil
+			currReq.reply <- err
 			cancelUpdate()
 			cancelUpdate = nil
 			currReq = nil
@@ -232,6 +232,7 @@ func (pm *Manager) stopOrPauseProcesses(ctx context.Context, shouldStop func(p *
 	progCohorts := pm.config.TopoSortedPrograms
 	for i := len(progCohorts) - 1; i >= 0; i-- {
 		var waitFor []*process
+		stateUpdated := make(chan struct{}, len(progCohorts[i]))
 		for _, p := range progCohorts[i] {
 			name := p.Name
 			oldp := pm.processes[name]
@@ -248,14 +249,28 @@ func (pm *Manager) stopOrPauseProcesses(ctx context.Context, shouldStop func(p *
 				kind = reqPause
 			}
 			oldp.req <- processRequest{
-				kind: kind,
+				kind:         kind,
+				stateUpdated: stateUpdated,
 			}
 			waitFor = append(waitFor, oldp)
 		}
-		// TODO if someone starts one of the waitFor processes while we're waiting, this
-		// could block indefinitely.
+		for range waitFor {
+			<-stateUpdated
+		}
 		select {
-		case <-pm.notifier.watch(ctx.Done(), waitFor, isStoppedOrPaused):
+		case notStopped := <-pm.notifier.waitFor(ctx.Done(), waitFor, isStoppedOrPaused):
+			if len(notStopped) > 0 {
+				// Someone has started a process while we're stopping things in preparation
+				// for the configuration update. It's hard to know what to do in this case,
+				// so just return an error for now. Although this can leave things in a partially
+				// shut down state, it's probably not too bad from the client's perspective,
+				// as repeating their command will still get them to the same place.
+				//
+				// TODO this can also happen when a process starts itself as a result
+				// of a cron entry. More thought required as to how we want things to
+				// behave in that case.
+				return nil, fmt.Errorf("some processes were started unexpectedly after asking them to stop (%v)", strings.Join(procNames(notStopped), ", "))
+			}
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}

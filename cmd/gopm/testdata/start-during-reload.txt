@@ -1,0 +1,47 @@
+gopm -c gopmconfig --quit-delay 0 &
+
+waitfile started.txt
+
+# reload a new version of the configuration, which should interrupt
+# the program, then wait for stop_wait_seconds, then
+# kill it properly.
+# However, in the meantime, we'll start the process,
+# which will move the status back to Started and abort
+# the reload.
+cp config2.cue gopmconfig/config.cue
+! gopmctl --addr unix:gopm.socket reload &reload&
+waitfile intr.txt
+
+gopmctl --addr unix:gopm.socket start prog
+
+wait reload
+stderr 'Error: rpc error: cannot stop processes: some processes were started unexpectedly after asking them to stop \(prog\)'
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: prog: {
+	command: """
+		trap ":" INT
+		interrupt-notify started.txt intr.txt
+		sleep 15
+		"""
+	stop_wait_seconds: "1s"
+}
+-- config2.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: prog: {
+	command: """
+		echo > started2.txt
+		"""
+	stop_wait_seconds: "1s"
+}

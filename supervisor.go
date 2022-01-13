@@ -121,7 +121,9 @@ func (s *Supervisor) Reload() error {
 	s.startGrpcServer(newConfig, gRPCListener)
 
 	s.createFiles(newConfig)
-	s.procMgr.Update(context.TODO(), newConfig)
+	if err := s.procMgr.Update(context.TODO(), newConfig); err != nil {
+		return err
+	}
 	s.config = newConfig
 
 	return nil

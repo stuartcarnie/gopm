@@ -69,7 +69,7 @@ type ProcessInfo struct {
 // AllProcessInfo returns information on all the processes.
 func (pm *Manager) AllProcessInfo() []*ProcessInfo {
 	zap.L().Debug("Manager.AllProcessInfo")
-	reply := make(chan *ProcessInfo)
+	reply := make(chan *ProcessInfo, 1)
 	n := len(pm.send(processRequest{
 		kind:      reqInfo,
 		infoReply: reply,
@@ -105,10 +105,11 @@ func (pm *Manager) SignalProcesses(name string, labels map[string]string, sig co
 func (pm *Manager) StartAllProcesses() error {
 	zap.L().Debug("Manager.StartAllProcesses")
 	procs := pm.send(processRequest{
-		kind: reqStart,
+		kind:         reqStart,
+		stateUpdated: make(chan struct{}, 1),
 	}, matchAll)
-	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
-	return pm.checkReady(procs)
+
+	return maybeNotReadyError(<-pm.notifier.waitFor(nil, procs, isReady))
 }
 
 // StartProcesses starts all matching processes and their dependencies.
@@ -125,7 +126,8 @@ func (pm *Manager) startProcesses(ctx context.Context, match func(*config.Progra
 	deps := getDeps(pm.config, match)
 
 	procs := pm._send(processRequest{
-		kind: reqStart,
+		kind:         reqStart,
+		stateUpdated: make(chan struct{}, 1),
 	}, func(p *config.Program) bool {
 		return deps[p.Name]&(depTarget|depDependedOn) != 0
 	})
@@ -141,8 +143,7 @@ func (pm *Manager) startProcesses(ctx context.Context, match func(*config.Progra
 		return deps[p.Name] == depDependsOn
 	})
 	pm.mu.RUnlock()
-	<-pm.notifier.watch(nil, procs, isReadyOrFailed)
-	return pm.checkReady(procs)
+	return maybeNotReadyError(<-pm.notifier.waitFor(nil, procs, isReady))
 }
 
 // StopAllProcesses stops all the processes managed by this manager
@@ -187,13 +188,13 @@ func (pm *Manager) RestartProcesses(name string, labels map[string]string) error
 	return pm.startProcesses(ctx, match)
 }
 
-func (pm *Manager) checkReady(procs []*process) error {
-	if failedProcs := pm.notifier.check(procs, isReady); len(failedProcs) > 0 {
-		return &rpc.NotStartedError{
-			ProcessNames: procNames(failedProcs),
-		}
+func maybeNotReadyError(notReadyProcs []*process) error {
+	if len(notReadyProcs) == 0 {
+		return nil
 	}
-	return nil
+	return &rpc.NotStartedError{
+		ProcessNames: procNames(notReadyProcs),
+	}
 }
 
 func procNames(procs []*process) []string {
@@ -215,7 +216,7 @@ type TailLogParams struct {
 // p.Write when data is received. When pm.Follow is true,
 // the log will continue to be written until the context is cancelled.
 func (pm *Manager) TailLog(ctx context.Context, p TailLogParams) error {
-	reply := make(chan *logger.Logger)
+	reply := make(chan *logger.Logger, 1)
 	procs := pm.send(processRequest{
 		kind:        reqLogger,
 		loggerReply: reply,
@@ -268,6 +269,11 @@ func (pm *Manager) _send(req processRequest, match func(p *config.Program) bool)
 			proc := pm.processes[p.Name]
 			proc.req <- req
 			procs = append(procs, proc)
+		}
+	}
+	if req.stateUpdated != nil {
+		for range procs {
+			<-req.stateUpdated
 		}
 	}
 	return procs

@@ -127,7 +127,7 @@ func (pm *Manager) markReady(p *process, ready map[*process]bool, state map[stri
 		return pDepsReady && isReady(state[p.name])
 	}
 	pDepsReady = true
-	for _, dep := range pm.config.Programs[p.name].DependsOn {
+	for dep := range pm.config.Programs[p.name].DependsOn {
 		p := pm.processes[dep]
 		if p == nil {
 			pDepsReady = false
@@ -314,7 +314,7 @@ func walkDeps(cfg *config.Config, p *config.Program, isTarget func(*config.Progr
 		isChild = true
 	}
 	isParent := false
-	for _, name := range p.DependsOn {
+	for name := range p.DependsOn {
 		isParent = walkDeps(cfg, cfg.Programs[name], isTarget, isChild, deps) || isParent
 	}
 	if isParent {

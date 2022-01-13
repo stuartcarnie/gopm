@@ -207,7 +207,7 @@ func (cfg *Config) verifyDependencies() error {
 
 func (cfg *Config) checkDepsExist() error {
 	for _, p := range cfg.Programs {
-		for _, dep := range p.DependsOn {
+		for dep := range p.DependsOn {
 			if cfg.Programs[dep] == nil {
 				return fmt.Errorf("program %q has dependency on non-existent program %q", p.Name, dep)
 			}
@@ -304,7 +304,7 @@ type Program struct {
 	LogFileBackups          int               `json:"logfile_backups"`
 	LogFileMaxBytes         int64             `json:"logfile_max_bytes"`
 	LogFileMaxBacklogBytes  int               `json:"logfile_max_backlog_bytes"`
-	DependsOn               []string          `json:"depends_on"`
+	DependsOn               map[string]bool   `json:"depends_on"`
 	Labels                  map[string]string `json:"labels"`
 }
 

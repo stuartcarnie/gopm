@@ -102,7 +102,7 @@ import "strings"
 
 #Prog: {
 	name: _
-	depends_on: [... string]
+	depends_on: [string]: true
 	// Example command:
 	// 	sleep 0.5
 	//	echo "a [ $(cat b.txt) ] [ $(cat c.txt) ] > a.txt
@@ -110,7 +110,7 @@ import "strings"
 		echo --- \(name) running
 		sleep 0.25
 		echo "\(name)$(cat generation.txt)\(strings.Join([
-			for dep in depends_on {
+			for dep, _ in depends_on {
 				" [ $(cat \(dep).txt) ]"
 			},
 		], ""))" > \(name).txt
@@ -128,7 +128,7 @@ import "strings"
 		# When we're interrupted, remove our own file. The files
 		# of our dependencies should still be there.
 		rm -f \(name).txt
-		for dep in \(strings.Join(depends_on, " ")); do
+		for dep in \(strings.Join([for dep, _ in depends_on {dep}], " ")); do
 			if ! test -f $dep.txt; then
 				echo \(name): dependency $dep removed too early >> stop-failures.txt
 			fi
@@ -150,9 +150,15 @@ config: {
 	}
 	programs: [_]: #Prog
 	programs: {
-		a: depends_on: ["b", "c"]
-		b: depends_on: ["c", "d"]
-		c: depends_on: ["d"]
+		a: depends_on: {
+			b: true,
+			c: true,
+		}
+		b: depends_on:  {
+			c: true,
+			d: true,
+		}
+		c: depends_on: d: true
 		d: {}
 	}
 }

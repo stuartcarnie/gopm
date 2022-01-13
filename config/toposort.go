@@ -30,7 +30,7 @@ func topoSort(programs map[string]*Program) (sorted []string, cycles [][]string)
 
 // dependsOn reports whether p depends on any member of others.
 func (cfg *Config) dependsOn(p *Program, others map[*Program]bool) bool {
-	for _, dep := range p.DependsOn {
+	for dep := range p.DependsOn {
 		if others[cfg.Programs[dep]] || cfg.dependsOn(cfg.Programs[dep], others) {
 			return true
 		}
@@ -62,7 +62,7 @@ func (v *visitor) visit(n string) (cycles [][]string) {
 		return [][]string{{n}}
 	}
 	v.visiting[n] = true
-	for _, child := range v.programs[n].DependsOn {
+	for child := range v.programs[n].DependsOn {
 		cycles = append(cycles, v.visit(child)...)
 	}
 	v.done[n] = true

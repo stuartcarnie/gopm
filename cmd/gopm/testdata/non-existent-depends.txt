@@ -15,6 +15,6 @@ config: grpc_server: {
 config: programs: {
 	a: {
 		command: " "
-		depends_on: ["b"]
+		depends_on: b: true
 	}
 }

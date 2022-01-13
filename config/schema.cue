@@ -86,15 +86,20 @@ config:  #Config
 	// above command. The shell is invoked as $shell -c $command.
 	shell?: string
 
-	// A list of process names that must be started before starting
-	// this process.
-	depends_on?: [...string]
+	// depends_on holds set of process names that must be started before starting
+	// this process. Each key in the map must name another program.
+	// Cyclic dependencies are not allowed.
+	depends_on?: [string]: true
 
-	// labels is
+	// labels holds a set of labels to associate with the program.
+	// Some gopmctl commands can be applied to all programs with
+	// a matching set of labels.
 	labels: [string]: string
-	environment?: {
-		{[string]: string}
-	}
+
+	// environment holds the environment variables to pass to the program.
+	// Note that this is empty by default.
+	environment?: [string]: string
+
 	// user holds the username to run the process as.
 	user?: string
 
@@ -140,11 +145,6 @@ config:  #Config
 
 	// stop_wait_seconds holds the time to wait for the process to stop after sending a signal.
 	stop_wait_seconds?: time.Duration
-
-	// A list of process names that must be started before starting
-	// this process
-	depends_on?: [...string]
-	labels: [string]: string
 
 	// logfile holds the file to write the output of the process to. If this is /dev/stderr
 	// or /dev/stdout, the output will be written to gopm's standard error or standard

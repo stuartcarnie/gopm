@@ -55,14 +55,18 @@ func TestVerifyDependencies(t *testing.T) {
 				Programs: make(map[string]*Program),
 			}
 			for name, deps := range test.deps {
+				depsMap := make(map[string]bool)
+				for _, dep := range deps {
+					depsMap[dep] = true
+				}
 				p := cfg.Programs[name]
 				if p == nil {
 					cfg.Programs[name] = &Program{
 						Name:      name,
-						DependsOn: deps,
+						DependsOn: depsMap,
 					}
 				} else {
-					p.DependsOn = deps
+					p.DependsOn = depsMap
 				}
 				// Make sure all the dependencies have nodes too,
 				// so we don't have to specify terminal nodes in each test.

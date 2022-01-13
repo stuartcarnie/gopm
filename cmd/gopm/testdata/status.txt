@@ -19,7 +19,7 @@ config: grpc_server: {
 config: programs: {
 	hello: {
 		command: "echo hello"
-		depends_on: ["foo"]
+		depends_on: foo: true
 	}
 	foo: {
 		command: "sleep 10"

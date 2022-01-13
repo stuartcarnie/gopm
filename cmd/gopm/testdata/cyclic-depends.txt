@@ -15,11 +15,13 @@ config: grpc_server: {
 config: programs: {
 	a: {
 		command: " "
-		depends_on: ["b", "c"]
+		depends_on: b: true
+		depends_on: c: true
 	}
 	b: {
 		command: " "
-		depends_on: ["d", "a"]
+		depends_on: d: true
+		depends_on: a: true
 	}
 	c: {
 		command: " "

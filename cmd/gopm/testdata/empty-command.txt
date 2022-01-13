@@ -18,11 +18,12 @@ config: {
 			command: """
 				echo "a [ $(cat b.txt) ] [ $(cat c.txt) ]" > a.txt
 				"""
-			depends_on: ["pseudo"]
+			depends_on: pseudo: true
 		}
 		pseudo: {
 			command: ""
-			depends_on: ["b", "c"]
+			depends_on: b: true
+			depends_on: c: true
 		}
 		b: {
 			command: """

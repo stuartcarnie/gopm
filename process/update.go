@@ -12,7 +12,7 @@ import (
 
 // UpdatePrograms updates the programs run by the manager.
 func (pm *Manager) Update(ctx context.Context, config *config.Config) (_err error) {
-	zap.L().Debug("Manager.Update {", zap.Int("program-count", len(config.Programs)))
+	zap.L().Debug("Manager.Update", zap.Int("program-count", len(config.Programs)))
 	reply := make(chan error, 1)
 	pm.updateConfigc <- &updateConfigReq{
 		config: config,

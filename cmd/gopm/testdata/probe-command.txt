@@ -1,0 +1,29 @@
+gopm -c gopmconfig --quit-delay 0 &
+waitfile bar.txt
+exists foo.txt
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: {
+	foo: {
+		command: """
+			sleep 0.5
+			echo foo started > foo.txt
+			sleep 30
+		"""
+		probe: command: "test -f foo.txt"
+		start_seconds: "20s"
+	}
+	bar: {
+		oneshot: true
+		command: "echo bar started > bar.txt"
+		depends_on: foo: true
+	}
+}

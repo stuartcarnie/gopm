@@ -13,6 +13,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.8.2-0.20220112175052-f3cb5c2c6412
+	github.com/rogpeppe/retry v0.1.0
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
 	go.uber.org/zap v1.15.0

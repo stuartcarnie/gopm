@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/load"
 	"github.com/robfig/cron/v3"
+	"github.com/rogpeppe/retry"
 )
 
 var (
@@ -282,6 +284,7 @@ type Program struct {
 	Name                    string            `json:"name"`
 	Directory               string            `json:"directory"`
 	Command                 string            `json:"command"`
+	Probe                   *Probe            `json:"probe,omitempty"`
 	Description             string            `json:"description,omitempty"`
 	Shell                   string            `json:"shell"`
 	Environment             map[string]string `json:"environment"`
@@ -308,6 +311,83 @@ type Program struct {
 	Labels                  map[string]string `json:"labels"`
 }
 
+type Probe struct {
+	Command string `json:"command,omitempty"`
+	Shell   string `json:"shell,omitempty"`
+
+	URL string `json:"url,omitempty"`
+
+	File    string  `json:"file,omitempty"`
+	Pattern *Regexp `json:"pattern,omitempty"`
+
+	Output *Regexp `json:"output,omitempty"`
+
+	Retry *ProbeRetry `json:"retry,omitempty"`
+}
+
+func (p *Probe) Type() ProbeType {
+	switch {
+	case p.Command != "":
+		return ProbeCommand
+	case p.URL != "":
+		return ProbeURL
+	case p.File != "":
+		return ProbeFile
+	case p.Output != nil:
+		return ProbeOutput
+	}
+	return ProbeUnknown
+}
+
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.1.8 -type ProbeType
+
+type ProbeType int
+
+const (
+	ProbeUnknown ProbeType = iota
+	ProbeCommand
+	ProbeURL
+	ProbeFile
+	ProbeOutput
+)
+
+type ProbeRetry struct {
+	Delay    Duration `json:"delay"`
+	MaxDelay Duration `json:"max_delay,omitempty"`
+	Factor   float64  `json:"factor,omitempty"`
+	Regular  bool     `json:"regular,omitempty"`
+}
+
+func (r *ProbeRetry) Strategy() retry.Strategy {
+	return retry.Strategy{
+		Delay:    r.Delay.D,
+		MaxDelay: r.MaxDelay.D,
+		Factor:   r.Factor,
+		Regular:  r.Regular,
+	}
+}
+
+type Regexp struct {
+	R *regexp.Regexp
+}
+
+func (r *Regexp) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	r1, err := regexp.Compile(s)
+	if err != nil {
+		return err
+	}
+	r.R = r1
+	return nil
+}
+
+func (r *Regexp) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.R.String())
+}
+
 type Server struct {
 	Address string `json:"address"`
 	Network string `json:"network"`
@@ -317,9 +397,9 @@ type Duration struct {
 	D time.Duration
 }
 
-func (d *Duration) UnmarshalJSON(bytes []byte) error {
+func (d *Duration) UnmarshalJSON(data []byte) error {
 	var s string
-	if err := json.Unmarshal(bytes, &s); err != nil {
+	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
 	v, err := time.ParseDuration(s)

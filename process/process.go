@@ -119,6 +119,9 @@ type process struct {
 	// It's recreated every time a command is started.
 	cmdWait chan error
 
+	// readyNotifier notifies when the command is considered running.
+	readyNotifier readyNotifier
+
 	// exitStatus holds the error returned by the last cmd.Wait call.
 	exitStatus error
 
@@ -161,11 +164,12 @@ type process struct {
 // newProcess creates a new process from the given configuration and starts it running.
 func newProcess(cfg *config.Program, notifier *stateNotifier) *process {
 	p := &process{
-		name:     cfg.Name,
-		notifier: notifier,
-		req:      make(chan processRequest),
-		config:   cfg,
-		state:    Stopped,
+		name:          cfg.Name,
+		notifier:      notifier,
+		req:           make(chan processRequest),
+		config:        cfg,
+		state:         Stopped,
+		readyNotifier: neverReady{},
 	}
 	if cfg.AutoStart {
 		p.state = Starting
@@ -217,22 +221,16 @@ func (p *process) run() {
 					break
 				}
 				p.zlog.Info("start")
-
-				// Wake up when the command has been running long enough
-				// to mark it as such (or only when the command exits if it's
-				// a one-shot command).
-				p.startTime = time.Now()
-				p.stopTime = time.Time{}
-				if !p.config.Oneshot {
-					timer.Reset(p.config.StartSeconds.D)
-				}
 			}
-			if p.cmd != nil && !p.config.Oneshot && time.Since(p.startTime) >= p.config.StartSeconds.D {
-				// The command has been running for long enough to go
-				// into the Running state.
-				p.state = Running
-				p.startCount = 0
-				timer.Stop()
+			if p.cmd != nil {
+				select {
+				case <-p.readyNotifier.ready():
+					// It's ready. We can go into the Running state now.
+					p.state = Running
+					p.startCount = 0
+					p.closeReadyNotifier()
+				default:
+				}
 			}
 		case Stopping, Pausing:
 			// When we're stopping, p.stopSignals keeps track of the next signal
@@ -248,6 +246,7 @@ func (p *process) run() {
 				p.cmdWait = nil
 				p.zlog.Error("killed process but it failed to exit")
 				p.state = Stopped
+				p.closeReadyNotifier()
 				break
 			}
 			if err := p.signal(p.stopSignals[0]); err != nil {
@@ -296,6 +295,7 @@ func (p *process) run() {
 
 			p.zlog.Info("exited", zap.Error(exit))
 			p.cmd = nil
+			p.closeReadyNotifier()
 			p.exitStatus = exit
 			p.startTime = time.Time{}
 			p.killTime = time.Time{}
@@ -336,8 +336,17 @@ func (p *process) run() {
 				kind: reqStart,
 			})
 			p.cronTimer.Reset(p.nextCronWait())
+		case <-p.readyNotifier.ready():
+			// Our process has become ready, signalled
+			// the done channel being closed. We'll check it
+			// again in the state switch next time around.
 		}
 	}
+}
+
+func (p *process) closeReadyNotifier() {
+	p.readyNotifier.close()
+	p.readyNotifier = neverReady{}
 }
 
 // setStopSignals sets p.stopSignals to the list of signals that
@@ -382,13 +391,14 @@ func (p *process) startCommand() error {
 	if p.cmd != nil {
 		panic("startCommand with command already running")
 	}
-	cmd := exec.Command(p.config.Shell, "-c", p.config.Command)
+
 	if info, err := os.Stat(p.config.Directory); err != nil {
-		return fmt.Errorf("invalid directory directory for process %q: %v", p.name, err)
+		return fmt.Errorf("invalid directory for process %q: %v", p.name, err)
 	} else if !info.IsDir() {
-		return fmt.Errorf("invalid directory directory for process %q: %q is not a directory", p.name, p.config.Directory)
+		return fmt.Errorf("invalid directory for process %q: %q is not a directory", p.name, p.config.Directory)
 	}
 
+	cmd := exec.Command(p.config.Shell, "-c", p.config.Command)
 	// TODO set user ID
 	for k, v := range p.config.Environment {
 		cmd.Env = append(cmd.Env, k+"="+v)
@@ -397,10 +407,16 @@ func (p *process) startCommand() error {
 	cmd.Stdout = p.logger
 	cmd.Stderr = p.logger
 	setProcAttr(cmd)
+
+	// We need to create this before starting the command, because it
+	// might hook into p.logger and we want it to catch all output in that case.
+	notifier := newReadyNotifier(p)
+
 	if err := cmd.Start(); err != nil {
+		notifier.close()
 		return fmt.Errorf("cannot start command: %v", err)
 	}
-
+	p.readyNotifier = notifier
 	// Start a goroutine notify us when the process has exited.
 	cmdWait := make(chan error, 1)
 	go func() {
@@ -440,6 +456,9 @@ func (p *process) handleRequest(req processRequest) {
 		} else if p.state != Stopping {
 			p.state = Stopping
 			p.setStopSignals()
+			// There's no point in signalling that we're ready
+			// when the process is being stopped.
+			p.closeReadyNotifier()
 		}
 	case reqPause:
 		if p.cmd == nil {
@@ -463,6 +482,9 @@ func (p *process) handleRequest(req processRequest) {
 			default:
 				panic("unexpected state " + p.state.String())
 			}
+			// There's no point in signalling that we're ready
+			// when the process is being stopped.
+			p.closeReadyNotifier()
 		}
 	case reqResume:
 		if p.state == Paused {

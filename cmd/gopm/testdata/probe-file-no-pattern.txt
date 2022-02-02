@@ -1,0 +1,37 @@
+mkdir progdir
+gopm -c gopmconfig --quit-delay 0 &
+waitfile bar.txt
+cmp progdir/foo.txt expect-foo.txt
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: {
+	foo: {
+		directory: "progdir",
+		command: """
+		sleep 0.5
+		echo hello > foo.txt
+		sleep 30
+		"""
+		probe: {
+			file: "foo.txt"
+		}
+		start_seconds: "20s"
+		logfile: "/dev/stdout"
+	}
+	bar: {
+		oneshot: true
+		command: "echo bar started > bar.txt"
+		depends_on: foo: true
+		logfile: "/dev/stdout"
+	}
+}
+-- expect-foo.txt --
+hello

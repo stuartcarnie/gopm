@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"testing"
@@ -23,6 +24,7 @@ func TestMain(m *testing.M) {
 		"gopmctl":          gopmctlcmd.Main,
 		"interrupt-notify": interruptNotifyMain,
 		"signal-notify":    signalNotifyMain,
+		"http-server":      httpServerMain,
 	}))
 }
 
@@ -32,6 +34,7 @@ func TestScript(t *testing.T) {
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
 			"waitfile":   waitfile,
 			"appendfile": appendfile,
+			"geturl":     geturl,
 		},
 		Setup: func(env *testscript.Env) error {
 			env.Setenv("GOTRACEBACK", "all")
@@ -71,6 +74,24 @@ func signalNotifyMain() int {
 	}
 	if err := signalNotifyCmd(*contFlag, args[0], args[1], args[2]); err != nil {
 		log.Printf("signal-notify: %v", err)
+		return 1
+	}
+	return 0
+}
+
+func httpServerMain() int {
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 1 {
+		log.Printf("usage: http-server listenaddr")
+		return 2
+	}
+	err := http.ListenAndServe(args[0], http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.Write([]byte(r.URL.Path))
+	}))
+	if err != nil {
+		log.Printf("http.ListenAndServe failed: %v", err)
 		return 1
 	}
 	return 0
@@ -127,6 +148,24 @@ func appendfile(ts *testscript.TestScript, neg bool, args []string) {
 	defer appendFile.Close()
 	if _, err := io.Copy(dstFile, appendFile); err != nil {
 		ts.Fatalf("error copying data: %v", err)
+	}
+}
+
+// geturl gets the contents of a url and checks that the status code is 200.
+func geturl(ts *testscript.TestScript, neg bool, args []string) {
+	if neg {
+		ts.Fatalf("geturl doesn't support negation")
+	}
+	if len(args) != 1 {
+		ts.Fatalf("usage: geturl URL")
+	}
+	resp, err := http.Get(args[0])
+	if err != nil {
+		ts.Fatalf("GET failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		ts.Fatalf("GET returned unexpected response code %v", resp.StatusCode)
 	}
 }
 

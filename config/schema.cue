@@ -2,6 +2,7 @@ package gopm
 
 import (
 	pathpkg "path"
+	"regexp"
 	"time"
 )
 
@@ -75,6 +76,56 @@ config:  #Config
 	// This can be useful for making a program that acts as
 	// a pseudo-target for a bunch of other dependencies.
 	command: string
+
+	// probe specifies a way to find out when a command
+	// is running. If oneshot is true, the probe is run once
+	// when the command exits successfully; otherwise it's run repeatedly
+	// after the command has been started until it succeeds
+	// or the start_seconds timeout has been exceeded.
+	probe?: {
+		// command specifies a probe command to run.
+		// It should return immediately and its exit status should
+		// reflect whether the program command is running (0 means
+		// it's running).
+		//
+		// The probe command is run in the same directory and with the
+		// same environment as the program command.
+		command: string
+
+		// shell specifies the shell to use to run the command.
+		// It defaults to the same shell as the program.
+		"shell"?: string
+
+		// retry specifies how often to run the probe
+		// after starting the command.
+		retry?: #ProbeRetry
+	} | {
+		// url specifies an HTTP URL to fetch.
+		// The command is deemed to be running if a GET
+		// request on the URL returns a 2xx status.
+		url: string
+
+		// retry specifies how often to run the probe
+		// after starting the command.
+		retry?: #ProbeRetry
+	} | {
+		// file specifies a file to read.
+		// The program command is deemed to be running if the file exists and, if
+		// pattern is provided, the file contains a match for that.
+		//
+		// If the path isn't absolute, it's interpreted relative to
+		// the program's directory.
+		file:     string
+		pattern?: regexp.Valid
+
+		// retry specifies how often to read the file after
+		// starting the command.
+		retry?: #ProbeRetry
+	} | {
+		// output specifies a pattern to match in the program's stdout
+		// or stderr. The pattern cannot match multiple lines.
+		output: regexp.Valid
+	}
 
 	// oneshot specifies that the command is always intended
 	// to run to completion. If this is true, start_seconds is ignored and
@@ -165,6 +216,24 @@ config:  #Config
 	logfile_max_backlog_bytes?: int
 }
 
+#ProbeRetry: {
+	// delay holds the amount of time between the start of each iteration.
+	// If factor is specified or max_delay is greater
+	// than delay, then the maximum delay time will increase
+	// exponentially (modulo jitter) as iterations continue, up to a
+	// maximum of max_delay.
+	delay:      time.Duration
+	max_delay?: time.Duration
+	factor?:    number & >=1
+	regular?:   bool
+
+	// TODO we could include max_count and max_duration
+	// here to make it possible to specify that if a probe
+	// hasn't succeeded after some time, it should be considered
+	// to have failed (and go into Fatal state) but that isn't
+	// straightforward, so only allow unlimited retries for now.
+}
+
 #File: {
 	name: =~"^\\w+$"
 	// path holds the path relative to the filesystem root.
@@ -182,17 +251,34 @@ config:  #Config
 	config: #Config
 	config: root: *runtime.cwd | _
 	config: programs: [_]: #Program & {
-		directory:                 *runtime.cwd | _
-		shell:                     *"/bin/sh" | _
-		exit_codes:                *[0, 2] | _
-		start_retries:             *3 | _
-		start_seconds:             *"1s" | _
-		auto_start:                *true | _
-		oneshot:                   *false | _
-		auto_restart:              *false | _
-		restart_file_pattern:      *"*" | _
-		stop_signals:              *["INT", "KILL"] | _
-		stop_wait_seconds:         *"10s" | _
+		directory:            *runtime.cwd | _
+		shell:                *"/bin/sh" | _
+		exit_codes:           *[0, 2] | _
+		start_retries:        *3 | _
+		start_seconds:        *"1s" | _
+		auto_start:           *true | _
+		oneshot:              *false | _
+		auto_restart:         *false | _
+		restart_file_pattern: *"*" | _
+		stop_signals:         *["INT", "KILL"] | _
+		stop_wait_seconds:    *"10s" | _
+		probe?:               {
+			command: _
+			"shell": *shell | _
+			retry:   *#defaultRetry | _
+			...
+		} | {
+			url:   _
+			retry: *#defaultRetry | _
+			...
+		} | {
+			file:  _
+			retry: *#defaultRetry | _
+			...
+		} | {
+			output: _
+			...
+		}
 		logfile:                   *"/dev/null" | _
 		logfile_backups:           *1 | _
 		logfile_max_bytes:         *50Mi | _
@@ -200,4 +286,9 @@ config:  #Config
 	}
 
 	...
+}
+
+#defaultRetry: {
+	delay:     "1ms"
+	max_delay: "100ms"
 }

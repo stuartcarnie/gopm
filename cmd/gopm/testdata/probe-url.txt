@@ -1,0 +1,31 @@
+gopm -c gopmconfig --quit-delay 0 &
+waitfile bar.txt
+# TODO we're relying on luck that this "random" port isn't
+# in use by the system we're running tests on. We should
+# think of some way to avoid that possibility.
+geturl http://localhost:20565
+gopmctl --addr unix:gopm.socket shutdown
+wait
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+config: programs: [_]: logfile: "/dev/stdout"
+config: programs: {
+	foo: {
+		command: """
+			sleep 0.5
+			http-server localhost:20565
+			"""
+		probe: url: "http://localhost:20565"
+	}
+	bar: {
+		oneshot: true
+		command: "echo bar started > bar.txt"
+		depends_on: foo: true
+	}
+}

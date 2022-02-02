@@ -82,50 +82,7 @@ config:  #Config
 	// when the command exits successfully; otherwise it's run repeatedly
 	// after the command has been started until it succeeds
 	// or the start_seconds timeout has been exceeded.
-	probe?: {
-		// command specifies a probe command to run.
-		// It should return immediately and its exit status should
-		// reflect whether the program command is running (0 means
-		// it's running).
-		//
-		// The probe command is run in the same directory and with the
-		// same environment as the program command.
-		command: string
-
-		// shell specifies the shell to use to run the command.
-		// It defaults to the same shell as the program.
-		"shell"?: string
-
-		// retry specifies how often to run the probe
-		// after starting the command.
-		retry?: #ProbeRetry
-	} | {
-		// url specifies an HTTP URL to fetch.
-		// The command is deemed to be running if a GET
-		// request on the URL returns a 2xx status.
-		url: string
-
-		// retry specifies how often to run the probe
-		// after starting the command.
-		retry?: #ProbeRetry
-	} | {
-		// file specifies a file to read.
-		// The program command is deemed to be running if the file exists and, if
-		// pattern is provided, the file contains a match for that.
-		//
-		// If the path isn't absolute, it's interpreted relative to
-		// the program's directory.
-		file:     string
-		pattern?: regexp.Valid
-
-		// retry specifies how often to read the file after
-		// starting the command.
-		retry?: #ProbeRetry
-	} | {
-		// output specifies a pattern to match in the program's stdout
-		// or stderr. The pattern cannot match multiple lines.
-		output: regexp.Valid
-	}
+	probe?: #Probe
 
 	// oneshot specifies that the command is always intended
 	// to run to completion. If this is true, start_seconds is ignored and
@@ -216,6 +173,60 @@ config:  #Config
 	logfile_max_backlog_bytes?: int
 }
 
+#Probe: {
+	// command specifies a probe command to run.
+	// It should return immediately and its exit status should
+	// reflect whether the program command is running (0 means
+	// it's running).
+	//
+	// The probe command is run in the same directory and with the
+	// same environment as the program command.
+	command: string
+
+	// shell specifies the shell to use to run the command.
+	// It defaults to the same shell as the program.
+	"shell"?: string
+
+	// retry specifies how often to run the probe
+	// after starting the command.
+	retry?: #ProbeRetry
+} | {
+	// url specifies an HTTP URL to fetch.
+	// The command is deemed to be running if a GET
+	// request on the URL returns a 2xx status.
+	url: string
+
+	// retry specifies how often to run the probe
+	// after starting the command.
+	retry?: #ProbeRetry
+} | {
+	// file specifies a file to read.
+	// The program command is deemed to be running if the file exists and, if
+	// pattern is provided, the file contains a match for that.
+	//
+	// If the path isn't absolute, it's interpreted relative to
+	// the program's directory.
+	file:     string
+	pattern?: regexp.Valid
+
+	// retry specifies how often to read the file after
+	// starting the command.
+	retry?: #ProbeRetry
+} | {
+	// output specifies a pattern to match in the program's stdout
+	// or stderr. The pattern cannot match multiple lines.
+	output: regexp.Valid
+} | {
+	// and specifies that the probe is deemed to have succeeded
+	// when all child probes have succeeded.
+	and: [_]: #Probe
+} | {
+	// or specifies that the probe is deemed to have succeeded when
+	// any child probe has succeeded.
+	or: [_]: #Probe
+}
+
+
 #ProbeRetry: {
 	// delay holds the amount of time between the start of each iteration.
 	// If factor is specified or max_delay is greater
@@ -277,6 +288,12 @@ config:  #Config
 			...
 		} | {
 			output: _
+			...
+		} | {
+			and: _
+			...
+		} | {
+			or: _
 			...
 		}
 		logfile:                   *"/dev/null" | _

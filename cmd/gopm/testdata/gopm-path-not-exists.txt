@@ -1,0 +1,10 @@
+! gopm -c gopmconfig --quit-delay 0 -i gopmextra/foo.cue
+stderr 'error:cannot read CUE file: open gopmextra/foo.cue: no such file or directory'
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}

@@ -1,0 +1,17 @@
+! gopm -c gopmconfig --quit-delay 0 -i gopmextra
+stderr 'error:cannot read CUE file: read gopmextra: is a directory'
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+
+-- gopmextra/options.cue --
+config: programs: sleeper: {
+	command: """
+		echo hello
+		"""
+}

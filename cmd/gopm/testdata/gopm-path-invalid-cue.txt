@@ -1,4 +1,4 @@
-! gopm -c gopmconfig --quit-delay 0 -p gopmextra/options.cue
+! gopm -c gopmconfig --quit-delay 0 --include gopmextra/options.cue
 stderr 'error:cannot parse CUE file "gopmextra/options.cue":.*'
 
 -- gopmconfig/config.cue --

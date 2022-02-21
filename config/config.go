@@ -89,18 +89,9 @@ func load0(configDir string, tags []string, paths []string) (*Config, error) {
 	}
 
 	for _, path := range paths {
-		if fi, err := os.Stat(path); err != nil {
-			if os.IsNotExist(err) {
-				return nil, fmt.Errorf("cannot load CUE path %q: path does not exist", path)
-			}
-			return nil, fmt.Errorf("cannot load CUE path %q: %w", path, err)
-		} else if fi.IsDir() {
-			return nil, fmt.Errorf("CUE path must be a file, found directory %q", path)
-		}
-
 		by, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read CUE path %q: %w", path, err)
+			return nil, fmt.Errorf("cannot read CUE path: %w", err)
 		}
 
 		fi, err := parser.ParseFile(path, by)

@@ -1,5 +1,5 @@
 mkdir progdir
-gopm -c gopmconfig --quit-delay 0 -p gopmextra/options.cue &
+gopm -c gopmconfig --quit-delay 0 -i gopmextra/options.cue &
 waitfile gopm.socket
 gopmctl --addr unix:gopm.socket dump-config
 cmpenv stdout expect-stdout
@@ -12,8 +12,6 @@ config: grpc_server: {
 	address: "gopm.socket"
 }
 -- gopmextra/options.cue --
-package config
-
 config: programs: sleeper: {
 	command: """
 		echo hello

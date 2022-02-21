@@ -1,5 +1,5 @@
-! gopm -c gopmconfig --quit-delay 0 -p gopmextra
-stderr 'error:CUE path must be a file, found directory "gopmextra"'
+! gopm -c gopmconfig --quit-delay 0 -i gopmextra
+stderr 'error:cannot read CUE path: read gopmextra: is a directory'
 
 -- gopmconfig/config.cue --
 package config
@@ -10,8 +10,6 @@ config: grpc_server: {
 }
 
 -- gopmextra/options.cue --
-package config
-
 config: programs: sleeper: {
 	command: """
 		echo hello

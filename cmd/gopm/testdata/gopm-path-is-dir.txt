@@ -1,5 +1,5 @@
 ! gopm -c gopmconfig --quit-delay 0 -i gopmextra
-stderr 'error:cannot read CUE path: read gopmextra: is a directory'
+stderr 'error:cannot read CUE file: read gopmextra: is a directory'
 
 -- gopmconfig/config.cue --
 package config

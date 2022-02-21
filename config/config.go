@@ -100,7 +100,7 @@ func load0(configDir string, tags []string, paths []string) (*Config, error) {
 
 		by, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read CUE path %q: %w", path, err)
+			return nil, fmt.Errorf("cannot read CUE file: %w", path, err)
 		}
 
 		fi, err := parser.ParseFile(path, by)

@@ -1,0 +1,13 @@
+! gopm -c gopmconfig --quit-delay 0 -p gopmextra/options.cue
+stderr 'error:cannot parse CUE file "gopmextra/options.cue":.*'
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+
+-- gopmextra/options.cue --
+not valid cue

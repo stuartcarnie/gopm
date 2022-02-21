@@ -17,6 +17,7 @@ import (
 	"cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/load"
+	"cuelang.org/go/cue/parser"
 	"github.com/robfig/cron/v3"
 	"github.com/rogpeppe/retry"
 )
@@ -30,8 +31,8 @@ var (
 // Load loads the configuration at the given directory, with any configuration tags, and returns it.
 // On error, the error value may contain an Error value
 // containing multiple errors.
-func Load(configDir string, tags []string) (*Config, error) {
-	cfg, err := load0(configDir, tags)
+func Load(configDir string, tags []string, paths []string) (*Config, error) {
+	cfg, err := load0(configDir, tags, paths)
 	if err == nil {
 		return cfg, nil
 	}
@@ -43,7 +44,7 @@ func Load(configDir string, tags []string) (*Config, error) {
 	return nil, err
 }
 
-func load0(configDir string, tags []string) (*Config, error) {
+func load0(configDir string, tags []string, paths []string) (*Config, error) {
 	info, err := os.Stat(configDir)
 	if err != nil {
 		return nil, err
@@ -77,19 +78,42 @@ func load0(configDir string, tags []string) (*Config, error) {
 		Dir:  configDir,
 		Tags: tags,
 	})
-	for _, inst := range insts {
-		if err := inst.Err; err != nil {
-			return nil, fmt.Errorf("cannot load CUE instances in %q: %w", configDir, err)
+
+	if len(insts) != 1 {
+		return nil, fmt.Errorf("wrong instance count")
+	}
+
+	inst := insts[0]
+	if err := inst.Err; err != nil {
+		return nil, fmt.Errorf("cannot load CUE instance in %q: %w", configDir, err)
+	}
+
+	for _, path := range paths {
+		if fi, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				return nil, fmt.Errorf("cannot load CUE path %q: path does not exist", path)
+			}
+			return nil, fmt.Errorf("cannot load CUE path %q: %w", path, err)
+		} else if fi.IsDir() {
+			return nil, fmt.Errorf("CUE path must be a file, found directory %q", path)
+		}
+
+		by, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read CUE path %q: %w", path, err)
+		}
+
+		fi, err := parser.ParseFile(path, by)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse CUE file %q: %w", path, err)
+		}
+
+		if err := inst.AddSyntax(fi); err != nil {
+			return nil, fmt.Errorf("cannot process CUE file %q: %w", path, err)
 		}
 	}
-	vals, err := ctx.BuildInstances(insts)
-	if err != nil {
-		return nil, fmt.Errorf("cannot build instances: %w", err)
-	}
-	if len(vals) != 1 {
-		return nil, fmt.Errorf("wrong value count")
-	}
-	val := vals[0]
+
+	val := ctx.BuildInstance(inst)
 	if err := val.Err(); err != nil {
 		return nil, fmt.Errorf("cannot build configuration: %w", err)
 	}

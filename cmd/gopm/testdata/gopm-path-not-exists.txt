@@ -1,0 +1,19 @@
+! gopm -c gopmconfig --quit-delay 0 -p gopmextra/foo.cue
+stderr 'error:cannot load CUE path "gopmextra/foo.cue": path does not exist'
+
+-- gopmconfig/config.cue --
+package config
+
+config: grpc_server: {
+	network: "unix"
+	address: "gopm.socket"
+}
+
+-- gopmextra/options.cue --
+package config
+
+config: programs: sleeper: {
+	command: """
+		echo hello
+		"""
+}

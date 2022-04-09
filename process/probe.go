@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rogpeppe/retry"
@@ -24,6 +26,11 @@ func newReadyNotifier(p *process) readyNotifier {
 		// A one-shot process is only ready when it exits,
 		// so the associated readyNotifier will never report that
 		// it's ready.
+		// TODO this is wrong. According the docs, we should
+		// run the notifier exactly once after a process has exited,
+		// so maybe we can constrain max attempts to 1 in that case
+		// and assume that newReadyNotifer is only called after the
+		// process has exited.
 		return neverReady{}
 	}
 	if p.config.Probe == nil {
@@ -31,23 +38,28 @@ func newReadyNotifier(p *process) readyNotifier {
 		// after some period of time running.
 		return newReadyAfter(p.config.StartSeconds.D)
 	}
-	switch t := p.config.Probe.Type(); t {
+	return newReadyNotifierFromProbe(p, p.config.Probe)
+}
+
+func newReadyNotifierFromProbe(p *process, probe *config.Probe) readyNotifier {
+	switch t := probe.Type(); t {
 	case config.ProbeCommand:
 		return newPollingProber(&commandPoller{
 			config: p.config,
-		}, p.zlog, p.config.Probe.Retry.Strategy())
+			probe:  probe,
+		}, p.zlog, probe.Retry.Strategy())
 	case config.ProbeURL:
 		return newPollingProber(&urlPoller{
-			url: p.config.Probe.URL,
-		}, p.zlog, p.config.Probe.Retry.Strategy())
+			url: probe.URL,
+		}, p.zlog, probe.Retry.Strategy())
 	case config.ProbeFile:
 		var pattern *regexp.Regexp
-		if p.config.Probe.Pattern != nil {
+		if probe.Pattern != nil {
 			// We need ^ and $ to match newlines within the file, so recompile the
 			// pattern with that flag enabled.
-			pattern = regexp.MustCompile("(?m)" + p.config.Probe.Pattern.R.String())
+			pattern = regexp.MustCompile("(?m)" + probe.Pattern.R.String())
 		}
-		file := p.config.Probe.File
+		file := probe.File
 		if !filepath.IsAbs(file) {
 			file = filepath.Join(p.config.Directory, file)
 		}
@@ -58,13 +70,112 @@ func newReadyNotifier(p *process) readyNotifier {
 		return newPollingProber(&filePoller{
 			file:    file,
 			pattern: pattern,
-		}, p.zlog, p.config.Probe.Retry.Strategy())
+		}, p.zlog, probe.Retry.Strategy())
 	case config.ProbeOutput:
-		return newOutputProber(p)
+		return newOutputProber(p, probe)
+	case config.ProbeAnd:
+		return newAndProber(p, probe)
+	case config.ProbeOr:
+		return newOrProbe(p, probe)
 	default:
 		panic(fmt.Errorf("unknown probe type %v", t))
 	}
 }
+
+func newAndProber(p *process, probe *config.Probe) readyNotifier {
+	if len(probe.And) == 0 {
+		return alwaysReady{}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	readyCh := make(chan struct{})
+	remain := int64(len(probe.And))
+	for _, child := range probe.And {
+		child := child
+		notifier := newReadyNotifierFromProbe(p, child)
+		go func() {
+			defer notifier.close()
+
+			select {
+			case <-notifier.ready():
+				if n := atomic.AddInt64(&remain, -1); n == 0 {
+					close(readyCh)
+				}
+			case <-ctx.Done():
+			}
+		}()
+	}
+	return &andProbe{
+		cancel:  cancel,
+		readyCh: readyCh,
+	}
+}
+
+type andProbe struct {
+	cancel  func()
+	readyCh chan struct{}
+}
+
+func (p *andProbe) ready() <-chan struct{} {
+	return p.readyCh
+}
+
+func (p *andProbe) close() {
+	p.cancel()
+}
+
+func newOrProbe(p *process, probe *config.Probe) readyNotifier {
+	if len(probe.Or) == 0 {
+		return neverReady{}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	var cancelOnce sync.Once
+	readyCh := make(chan struct{})
+	for _, child := range probe.Or {
+		notifier := newReadyNotifierFromProbe(p, child)
+		go func() {
+			defer notifier.close()
+			select {
+			case <-notifier.ready():
+				cancelOnce.Do(func() {
+					cancel()
+					close(readyCh)
+				})
+			case <-ctx.Done():
+			}
+		}()
+	}
+	return &orProbe{
+		cancel:  cancel,
+		readyCh: readyCh,
+	}
+}
+
+type orProbe struct {
+	cancel  func()
+	readyCh chan struct{}
+}
+
+func (p *orProbe) ready() <-chan struct{} {
+	return p.readyCh
+}
+
+func (p *orProbe) close() {
+	p.cancel()
+}
+
+type alwaysReady struct{}
+
+func (alwaysReady) ready() <-chan struct{} {
+	return closedChan
+}
+
+func (alwaysReady) close() {}
+
+var closedChan = func() <-chan struct{} {
+	c := make(chan struct{})
+	close(c)
+	return c
+}()
 
 type neverReady struct{}
 
@@ -177,6 +288,7 @@ type poller interface {
 type commandPoller struct {
 	config *config.Program
 	logger *logger.Logger
+	probe  *config.Probe
 }
 
 func (p *commandPoller) poll(ctx context.Context) (bool, error) {
@@ -185,7 +297,7 @@ func (p *commandPoller) poll(ctx context.Context) (bool, error) {
 	} else if !info.IsDir() {
 		return false, fmt.Errorf("invalid directory for process %q: %q is not a directory", p.config.Name, p.config.Directory)
 	}
-	cmd := exec.CommandContext(ctx, p.config.Probe.Shell, "-c", p.config.Probe.Command)
+	cmd := exec.CommandContext(ctx, p.config.Probe.Shell, "-c", p.probe.Command)
 	// TODO set user ID
 	for k, v := range p.config.Environment {
 		cmd.Env = append(cmd.Env, k+"="+v)
@@ -205,7 +317,7 @@ func (p *commandPoller) poll(ctx context.Context) (bool, error) {
 }
 
 func (p *commandPoller) String() string {
-	return fmt.Sprintf("command %q", p.config.Probe.Command)
+	return fmt.Sprintf("command %q", p.probe.Command)
 }
 
 type filePoller struct {
@@ -267,9 +379,9 @@ type outputProber struct {
 	foundMatch bool
 }
 
-func newOutputProber(p *process) *outputProber {
+func newOutputProber(p *process, probe *config.Probe) *outputProber {
 	prober := &outputProber{
-		pattern: p.config.Probe.Output.R,
+		pattern: probe.Output.R,
 		logger:  p.logger,
 		readyCh: make(chan struct{}),
 	}

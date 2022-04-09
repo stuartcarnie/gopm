@@ -338,6 +338,10 @@ type Probe struct {
 	Output *Regexp `json:"output,omitempty"`
 
 	Retry *ProbeRetry `json:"retry,omitempty"`
+
+	Or map[string]*Probe `json:"or,omitempty"`
+
+	And map[string]*Probe `json:"and,omitempty"`
 }
 
 func (p *Probe) Type() ProbeType {
@@ -350,6 +354,10 @@ func (p *Probe) Type() ProbeType {
 		return ProbeFile
 	case p.Output != nil:
 		return ProbeOutput
+	case p.And != nil:
+		return ProbeAnd
+	case p.Or != nil:
+		return ProbeOr
 	}
 	return ProbeUnknown
 }
@@ -364,6 +372,8 @@ const (
 	ProbeURL
 	ProbeFile
 	ProbeOutput
+	ProbeAnd
+	ProbeOr
 )
 
 type ProbeRetry struct {
